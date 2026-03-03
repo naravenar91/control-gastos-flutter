@@ -1,0 +1,103 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // Para localización de Intl
+
+import 'domain/repositories/categoria_repository.dart';
+import 'domain/repositories/gasto_repository.dart';
+import 'domain/repositories/presupuesto_repository.dart';
+import 'infrastructure/app_database.dart';
+import 'infrastructure/repositories/drift_categoria_repository.dart';
+import 'infrastructure/repositories/drift_gasto_repository.dart';
+import 'infrastructure/repositories/drift_presupuesto_repository.dart';
+import 'presentation/bloc/gasto_bloc.dart';
+import 'presentation/bloc/gasto_event.dart';
+import 'presentation/bloc/theme_cubit.dart';
+import 'presentation/pages/home_page.dart';
+import 'presentation/theme_provider.dart';
+
+/// Punto de entrada principal de la aplicación Flutter.
+void main() {
+  // Asegura que los bindings de Flutter estén inicializados antes de usar plugins.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Instancia la base de datos de la aplicación.
+  // Esta instancia será inyectada en los repositorios.
+  final AppDatabase database = AppDatabase();
+
+  runApp(
+    // MultiRepositoryProvider provee las implementaciones concretas de los repositorios
+    // a través del árbol de widgets. Esto permite que los BLoCs los consuman.
+    MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<CategoriaRepository>(
+          create: (context) => DriftCategoriaRepository(database),
+        ),
+        RepositoryProvider<GastoRepository>(
+          create: (context) => DriftGastoRepository(database),
+        ),
+        RepositoryProvider<PresupuestoRepository>(
+          create: (context) => DriftPresupuestoRepository(database),
+        ),
+      ],
+      child: MultiBlocProvider(
+        providers: [
+          // ThemeCubit se encarga de manejar el tema claro/oscuro de la aplicación.
+          BlocProvider<ThemeCubit>(
+            create: (context) => ThemeCubit(),
+          ),
+          // GastoBloc se encarga de la lógica de negocio de los gastos.
+          // Consume los repositorios de Gasto y Categoría inyectados.
+          BlocProvider<GastoBloc>(
+            create: (context) => GastoBloc(
+              context.read<GastoRepository>(),
+              context.read<CategoriaRepository>(),
+            )..add(const LoadGastos()), // Carga inicial de gastos al iniciar el BLoC.
+          ),
+        ],
+        child: const MyApp(),
+      ),
+    ),
+  );
+
+  // Considerar cerrar la base de datos cuando la aplicación se detenga por completo.
+  // Esto puede hacerse con un WidgetsBindingObserver o manejando el ciclo de vida de la app
+  // si la base de datos es un singleton o tiene una vida útil gestionada.
+  // database.close(); // NO LLAMAR AQUÍ DIRECTAMENTE, ya que la app aún está corriendo.
+}
+
+/// Widget raíz de la aplicación.
+///
+/// Configura el [MaterialApp] con el tema dinámico y la localización.
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // BlocBuilder para reaccionar a los cambios de estado de ThemeCubit
+    // y aplicar el tema correspondiente (claro u oscuro).
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      builder: (context, themeMode) {
+        return MaterialApp(
+          title: 'Control de Gastos',
+          // Temas definidos en theme_provider.dart
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          // El tema actual se obtiene del estado de ThemeCubit
+          themeMode: themeMode,
+          // Configuración de localización para formatear fechas, monedas, etc.
+          localizationsDelegates: [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('es', 'CL'), // Español (Chile) como ejemplo
+            Locale('en', 'US'), // Inglés (Estados Unidos)
+            // Agrega más locales según sea necesario
+          ],
+          home: const HomePage(),
+        );
+      },
+    );
+  }
+}
