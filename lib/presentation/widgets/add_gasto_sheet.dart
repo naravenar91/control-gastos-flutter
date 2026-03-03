@@ -28,10 +28,14 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
   final TextEditingController _descripcionController = TextEditingController();
   final TextEditingController _montoController = TextEditingController();
   final TextEditingController _fechaController = TextEditingController();
+  final TextEditingController _fechaInicioController = TextEditingController();
+  final TextEditingController _fechaFinController = TextEditingController();
 
   Categoria? _selectedCategoria; // Categoría seleccionada
   bool _esFijo = false; // Indica si es un gasto fijo
   DateTime _selectedDate = DateTime.now(); // Fecha seleccionada, por defecto hoy
+  DateTime? _selectedFechaInicio;
+  DateTime? _selectedFechaFin;
 
   @override
   void initState() {
@@ -43,8 +47,15 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
       _montoController.text = formatter.format(widget.gasto!.monto.toInt());
       _selectedDate = widget.gasto!.fecha;
       _esFijo = widget.gasto!.esFijo;
-      // Nota: _selectedCategoria se inicializará en el StreamBuilder
-      // o podríamos buscarlo aquí si tuviéramos acceso al repositorio.
+      _selectedFechaInicio = widget.gasto!.fechaInicio;
+      _selectedFechaFin = widget.gasto!.fechaFin;
+
+      if (_selectedFechaInicio != null) {
+        _fechaInicioController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaInicio!);
+      }
+      if (_selectedFechaFin != null) {
+        _fechaFinController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaFin!);
+      }
     }
     _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
   }
@@ -61,6 +72,38 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
       setState(() {
         _selectedDate = picked;
         _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
+      });
+    }
+  }
+
+  /// Muestra un DatePicker para seleccionar la fecha de inicio del gasto fijo.
+  Future<void> _selectFechaInicio(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedFechaInicio ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedFechaInicio = picked;
+        _fechaInicioController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaInicio!);
+      });
+    }
+  }
+
+  /// Muestra un DatePicker para seleccionar la fecha de fin del gasto fijo.
+  Future<void> _selectFechaFin(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedFechaFin ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedFechaFin = picked;
+        _fechaFinController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaFin!);
       });
     }
   }
@@ -107,7 +150,7 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                   children: [
                     Expanded(
                       child: RadioListTile<TipoCategoria>(
-                        title: const Text('Gasto', style: TextStyle(fontSize: 12)),
+                        title: const Text('Gasto', style: TextStyle(fontSize: 10)),
                         value: TipoCategoria.gasto,
                         groupValue: selectedTipo,
                         contentPadding: EdgeInsets.zero,
@@ -116,8 +159,17 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                     ),
                     Expanded(
                       child: RadioListTile<TipoCategoria>(
-                        title: const Text('Ingreso', style: TextStyle(fontSize: 12)),
+                        title: const Text('Ingreso', style: TextStyle(fontSize: 10)),
                         value: TipoCategoria.ingreso,
+                        groupValue: selectedTipo,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<TipoCategoria>(
+                        title: const Text('Ahorro', style: TextStyle(fontSize: 10)),
+                        value: TipoCategoria.ahorro,
                         groupValue: selectedTipo,
                         contentPadding: EdgeInsets.zero,
                         onChanged: (value) => setDialogState(() => selectedTipo = value!),
@@ -174,8 +226,13 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                   );
                   
                   try {
-                    await context.read<CategoriaRepository>().insertCategoria(newCategoria);
-                    if (mounted) Navigator.pop(context);
+                    final newId = await context.read<CategoriaRepository>().insertCategoria(newCategoria);
+                    if (mounted) {
+                      setState(() {
+                        _selectedCategoria = newCategoria.copyWith(id: newId);
+                      });
+                      Navigator.pop(context);
+                    }
                   } catch (e) {
                     _showSnackBar('Error al crear categoría: $e', Colors.red);
                   }
@@ -304,6 +361,8 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
         activo: true,
         idCategoria: _selectedCategoria!.id,
         esFijo: _esFijo,
+        fechaInicio: _selectedFechaInicio,
+        fechaFin: _selectedFechaFin,
       );
 
       try {
@@ -335,6 +394,8 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
     _descripcionController.dispose();
     _montoController.dispose();
     _fechaController.dispose();
+    _fechaInicioController.dispose();
+    _fechaFinController.dispose();
     super.dispose();
   }
 
@@ -378,6 +439,7 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
               /// Campo de texto para la descripción del gasto.
               TextFormField(
                 controller: _descripcionController,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Descripción',
                   border: OutlineInputBorder(),
@@ -536,11 +598,49 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                     onChanged: (value) {
                       setState(() {
                         _esFijo = value;
+                        if (!_esFijo) {
+                          _selectedFechaInicio = null;
+                          _selectedFechaFin = null;
+                          _fechaInicioController.clear();
+                          _fechaFinController.clear();
+                        }
                       });
                     },
                   ),
                 ],
               ),
+              if (_esFijo) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _fechaInicioController,
+                        readOnly: true,
+                        onTap: () => _selectFechaInicio(context),
+                        decoration: const InputDecoration(
+                          labelText: 'Desde',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _fechaFinController,
+                        readOnly: true,
+                        onTap: () => _selectFechaFin(context),
+                        decoration: const InputDecoration(
+                          labelText: 'Hasta',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 20),
 
               /// Botón para guardar el gasto.

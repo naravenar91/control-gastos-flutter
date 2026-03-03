@@ -32,11 +32,23 @@ class DriftGastoRepository implements GastoRepository {
   @override
   Future<List<Gasto>> getGastosByDateRange(
       DateTime startDate, DateTime endDate) async {
-    // Consulta los gastos que se encuentran dentro de un rango de fechas.
-    // 'isBetween' es un comparador de Drift para rangos de fechas.
-    final gastoEntries = await (_db.select(_db.gastos)
-          ..where((tbl) => tbl.fecha.isBetween(Variable(startDate), Variable(endDate))))
-        .get();
+    // Consulta los gastos que se encuentran dentro de un rango de fechas
+    // O que sean gastos fijos cuyo rango de vigencia incluya el periodo solicitado.
+    final query = _db.select(_db.gastos)..where((tbl) {
+      // Condición 1: Gasto puntual dentro del mes
+      final isWithinRange = tbl.fecha.isBetween(Variable(startDate), Variable(endDate));
+      
+      // Condición 2: Gasto fijo vigente en el mes
+      // El gasto fijo está vigente si su fechaInicio es anterior o igual al fin del mes
+      // Y su fechaFin es posterior o igual al inicio del mes (o es nula).
+      final isFixedVigente = tbl.esFijo.equals(true) & 
+                             tbl.fechaInicio.isSmallerOrEqual(Variable(endDate)) & 
+                             (tbl.fechaFin.isBiggerOrEqual(Variable(startDate)) | tbl.fechaFin.isNull());
+      
+      return isWithinRange | isFixedVigente;
+    });
+
+    final gastoEntries = await query.get();
     return gastoEntries.map((entry) => toDomainGasto(entry)).toList();
   }
 

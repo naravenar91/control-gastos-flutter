@@ -1,6 +1,6 @@
 /// Representa los diferentes tipos de categorías para gastos e ingresos.
 ///
-/// Define si una categoría es para ingresos, gastos o actividades de ocio.
+/// Define si una categoría es para ingresos, gastos, actividades de ocio o ahorros.
 enum TipoCategoria {
   /// Categoría para ingresos.
   ingreso,
@@ -10,6 +10,9 @@ enum TipoCategoria {
 
   /// Categoría para actividades de ocio.
   ocio,
+
+  /// Categoría para ahorros.
+  ahorro,
 }
 
 /// Extensión para la enumeración [TipoCategoria] que proporciona utilidades.

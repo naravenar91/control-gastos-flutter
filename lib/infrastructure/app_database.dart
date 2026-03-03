@@ -61,6 +61,12 @@ class Gastos extends Table {
 
   /// Columna que indica si el gasto es fijo. Es un booleano no nulo.
   BoolColumn get esFijo => boolean()();
+
+  /// Columna opcional para la fecha de inicio de un gasto fijo.
+  DateTimeColumn get fechaInicio => dateTime().nullable()();
+
+  /// Columna opcional para la fecha de fin de un gasto fijo.
+  DateTimeColumn get fechaFin => dateTime().nullable()();
 }
 
 /// Definición de la tabla 'PresupuestosMensuales' para la base de datos.
@@ -127,13 +133,13 @@ class AppDatabase extends _$AppDatabase {
                 tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
               ),
               CategoriasCompanion.insert(
-                descripcion: 'Comida',
-                colorValue: 0xFFFF9800, // Naranja para comida
-                tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
+                descripcion: 'Ahorro',
+                colorValue: 0xFF2196F3, // Azul
+                tipo: domain_tipo_categoria.TipoCategoria.ahorro.index,
               ),
               CategoriasCompanion.insert(
-                descripcion: 'Transporte',
-                colorValue: 0xFF2196F3, // Azul
+                descripcion: 'Comida',
+                colorValue: 0xFFFF9800, // Naranja para comida
                 tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
               )
             ]);
@@ -290,6 +296,8 @@ GastosCompanion toGastosCompanion(domain_gasto.Gasto gasto) {
     activo: Value(gasto.activo),
     idCategoria: Value(gasto.idCategoria),
     esFijo: Value(gasto.esFijo),
+    fechaInicio: Value(gasto.fechaInicio),
+    fechaFin: Value(gasto.fechaFin),
   );
 }
 
@@ -303,6 +311,8 @@ domain_gasto.Gasto toDomainGasto(GastoEntry entry) {
     activo: entry.activo,
     idCategoria: entry.idCategoria,
     esFijo: entry.esFijo,
+    fechaInicio: entry.fechaInicio,
+    fechaFin: entry.fechaFin,
   );
 }
 

@@ -34,18 +34,19 @@ class HomePage extends StatelessWidget {
           return Center(child: Text('Error: ${state.message}'));
         } else if (state is GastoLoaded) {
           final NumberFormat currencyFormat =
-              NumberFormat.currency(locale: 'es_CL', symbol: '\$', decimalDigits: 0);
+              NumberFormat.decimalPattern('es_CL');
           final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
 
           // Calcula el saldo total para mostrar en el SliverAppBar
           final double balanceTotal = state.incomeTotal - state.expenseTotal;
 
-          // Función auxiliar para formatear montos con signo
+          // Función auxiliar para formatear montos con signo y símbolo al inicio
           String formatAmount(double amount, TipoCategoria? tipo) {
             final String formatted = currencyFormat.format(amount.abs());
-            if (tipo == TipoCategoria.ingreso) return '+$formatted';
-            if (tipo == TipoCategoria.gasto || tipo == TipoCategoria.ocio) return '-$formatted';
-            return formatted;
+            if (tipo == TipoCategoria.ingreso) return '+\$ $formatted';
+            if (tipo == TipoCategoria.ahorro) return '\$ $formatted';
+            if (tipo == TipoCategoria.gasto || tipo == TipoCategoria.ocio) return '-\$ $formatted';
+            return '\$ $formatted';
           }
 
           return CustomScrollView(
@@ -90,7 +91,7 @@ class HomePage extends StatelessWidget {
                               ),
                         ),
                         Text(
-                          '${balanceTotal >= 0 ? '+' : '-'}${currencyFormat.format(balanceTotal.abs())}',
+                          '${balanceTotal >= 0 ? '\$ +' : '\$ -'}${currencyFormat.format(balanceTotal.abs())}',
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                                 color: Theme.of(context).colorScheme.onPrimary,
                                 fontWeight: FontWeight.bold,
@@ -127,7 +128,7 @@ class HomePage extends StatelessWidget {
                             children: [
                               const Text('Ingresos:'),
                               Text(
-                                '+${currencyFormat.format(state.incomeTotal)}',
+                                '\$ +${currencyFormat.format(state.incomeTotal)}',
                                 style: TextStyle(
                                   color: Colors.green.shade700,
                                   fontWeight: FontWeight.bold,
@@ -141,7 +142,7 @@ class HomePage extends StatelessWidget {
                             children: [
                               const Text('Gastos:'),
                               Text(
-                                '-${currencyFormat.format(state.expenseTotal)}',
+                                '\$ -${currencyFormat.format(state.expenseTotal)}',
                                 style: TextStyle(
                                   color: Colors.red.shade700,
                                   fontWeight: FontWeight.bold,
@@ -163,15 +164,10 @@ class HomePage extends StatelessWidget {
                     final Gasto gasto = state.gastos[index];
                     final Categoria? categoria = state.categoriasMap[gasto.idCategoria];
 
-                    // Determina el color del monto según el tipo de categoría
+                    // Determina el color del monto según el color de su categoría en la DB
                     Color montoColor = Theme.of(context).colorScheme.onSurface;
                     if (categoria != null) {
-                      if (categoria.tipo == TipoCategoria.ingreso) {
-                        montoColor = Colors.green.shade700;
-                      } else if (categoria.tipo == TipoCategoria.gasto ||
-                          categoria.tipo == TipoCategoria.ocio) {
-                        montoColor = Colors.red.shade700;
-                      }
+                      montoColor = Color(categoria.colorValue);
                     }
 
                     return Dismissible(
@@ -223,8 +219,13 @@ class HomePage extends StatelessWidget {
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
-                          title: Text(gasto.descripcion),
-
+                          title: Row(
+                            children: [
+                              Expanded(child: Text(gasto.descripcion)),
+                              if (gasto.esFijo)
+                                const Icon(Icons.autorenew, size: 16, color: Colors.blueGrey),
+                            ],
+                          ),
                           subtitle: Text(dateFormat.format(gasto.fecha)),
                           trailing: Text(
                             formatAmount(gasto.monto, categoria?.tipo),

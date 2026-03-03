@@ -24,6 +24,7 @@ class GastoLoaded extends GastoState {
   final double totalMes;
   final double incomeTotal; // Total de ingresos
   final double expenseTotal; // Total de gastos
+  final double savingsTotal; // Total de ahorros
   final Map<int, Categoria> categoriasMap; // Mapa de categorías por ID
   final DateTime selectedMonth; // Mes seleccionado actual
 
@@ -32,6 +33,7 @@ class GastoLoaded extends GastoState {
     this.totalMes = 0.0,
     this.incomeTotal = 0.0,
     this.expenseTotal = 0.0,
+    this.savingsTotal = 0.0,
     this.categoriasMap = const {},
     required this.selectedMonth,
   });
@@ -42,6 +44,7 @@ class GastoLoaded extends GastoState {
         totalMes,
         incomeTotal,
         expenseTotal,
+        savingsTotal,
         categoriasMap,
         selectedMonth,
       ];

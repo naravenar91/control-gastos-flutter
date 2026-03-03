@@ -9,13 +9,14 @@ import '../../domain/repositories/categoria_repository.dart'; // Importar Catego
 import 'gasto_event.dart';
 import 'gasto_state.dart';
 
-/// Clase auxiliar para almacenar los totales de ingresos, gastos y el total general.
+/// Clase auxiliar para almacenar los totales de ingresos, gastos, ahorros y el total general.
 class _Totals {
   final double total;
   final double income;
   final double expense;
+  final double savings;
 
-  _Totals(this.total, this.income, this.expense);
+  _Totals(this.total, this.income, this.expense, this.savings);
 }
 
 /// Un BLoC (Business Logic Component) que maneja la lógica de negocio
@@ -44,28 +45,65 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
   ///
   /// Este método se encarga de:
   /// 1. Emitir un estado [GastoLoading] para indicar que se están cargando los datos.
-  /// 2. Obtener los gastos desde el [GastoRepository]. Si se proporcionan fechas, filtra por ellas.
-  /// 3. Obtener todas las categorías desde el [CategoriaRepository] y crear un mapa para acceso rápido.
-  /// 4. Calcular el total general, total de ingresos y total de gastos de los gastos cargados.
-  /// 5. Emitir un estado [GastoLoaded] con la lista de gastos, todos los totales y el mapa de categorías.
-  /// 6. Capturar cualquier error y emitir un estado [GastoError].
+  /// 2. Obtener todas las categorías primero para poder usarlas en la transformación y ordenamiento.
+  /// 3. Obtener los gastos desde el [GastoRepository] filtrados por el mes seleccionado.
+  /// 4. Transformar gastos fijos para que tengan la fecha del mes actual.
+  /// 5. Ordenar: Ingresos arriba, luego por monto descendente.
+  /// 6. Calcular totales incluyendo ahorros.
+  /// 7. Emitir un estado [GastoLoaded] con todos los datos.
+  /// 8. Capturar cualquier error y emitir un estado [GastoError].
   Future<void> _onLoadGastos(LoadGastos event, Emitter<GastoState> emit) async {
     emit(const GastoLoading());
     try {
-      // 1. Obtener gastos filtrados por el mes seleccionado
+      // 1. Obtener datos básicos
       final DateTime selectedDate = event.month;
       final DateTime startOfMonth = DateTime(selectedDate.year, selectedDate.month, 1);
       final DateTime endOfMonth = DateTime(selectedDate.year, selectedDate.month + 1, 0, 23, 59, 59);
 
-      final List<Gasto> gastos = await _gastoRepository.getGastosByDateRange(startOfMonth, endOfMonth);
-
-      // 2. Obtener categorías y crear un mapa para acceso rápido
+      // 2. Obtener categorías primero para poder usarlas en la transformación y ordenamiento
       final List<Categoria> categorias = await _categoriaRepository.getAllCategorias();
       final Map<int, Categoria> categoriasMap = {
         for (var categoria in categorias) categoria.id: categoria
       };
 
-      // 3. Calcular totales
+      // 3. Obtener registros de la base de datos
+      final List<Gasto> rawGastos = await _gastoRepository.getGastosByDateRange(startOfMonth, endOfMonth);
+
+      // 4. Transformar gastos fijos para que tengan la fecha del mes actual
+      final List<Gasto> gastos = rawGastos.map((g) {
+        if (g.esFijo) {
+          int day = g.fecha.day;
+          final lastDayOfSelectedMonth = DateTime(selectedDate.year, selectedDate.month + 1, 0).day;
+          if (day > lastDayOfSelectedMonth) day = lastDayOfSelectedMonth;
+          return g.copyWith(fecha: DateTime(selectedDate.year, selectedDate.month, day));
+        }
+        return g;
+      }).toList();
+
+      // 5. Ordenar: Ingresos arriba, luego por monto descendente
+      gastos.sort((a, b) {
+        final catA = categoriasMap[a.idCategoria];
+        final catB = categoriasMap[b.idCategoria];
+        
+        // Determinar "peso" del tipo (Ingreso = 0, Ahorro = 1, Gasto/Ocio = 2)
+        int getTypeOrder(TipoCategoria? tipo) {
+          if (tipo == TipoCategoria.ingreso) return 0;
+          if (tipo == TipoCategoria.ahorro) return 1;
+          return 2;
+        }
+
+        final int typeOrderA = getTypeOrder(catA?.tipo);
+        final int typeOrderB = getTypeOrder(catB?.tipo);
+
+        if (typeOrderA != typeOrderB) {
+          return typeOrderA.compareTo(typeOrderB);
+        }
+        
+        // Si son del mismo grupo, ordenar por monto desc
+        return b.monto.compareTo(a.monto);
+      });
+
+      // 6. Calcular totales
       final _Totals totals = _calculateTotals(gastos, categoriasMap);
 
       emit(GastoLoaded(
@@ -73,6 +111,7 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
         totalMes: totals.total,
         incomeTotal: totals.income,
         expenseTotal: totals.expense,
+        savingsTotal: totals.savings,
         categoriasMap: categoriasMap,
         selectedMonth: selectedDate,
       ));
@@ -82,16 +121,9 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
   }
 
   /// Manejador del evento [AddGasto].
-  ///
-  /// Este método se encarga de:
-  /// 1. Llamar al [GastoRepository] para guardar el nuevo gasto.
-  /// 2. Una vez guardado, dispara un evento [LoadGastos] para recargar la lista
-  ///    y actualizar la UI con el nuevo gasto y el total.
-  /// 3. Capturar cualquier error y emitir un estado [GastoError].
   Future<void> _onAddGasto(AddGasto event, Emitter<GastoState> emit) async {
     try {
       await _gastoRepository.saveGasto(event.gasto);
-      // Después de agregar, recarga los gastos para el mismo mes
       add(LoadGastos(event.gasto.fecha));
     } catch (e) {
       emit(GastoError('Error al agregar registro: $e'));
@@ -109,18 +141,11 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
   }
 
   /// Manejador del evento [DeleteGasto].
-  ///
-  /// Este método se encarga de:
-  /// 1. Llamar al [GastoRepository] para eliminar el gasto por su ID.
-  /// 2. Una vez eliminado, dispara un evento [LoadGastos] para recargar la lista
-  ///    y actualizar la UI.
-  /// 3. Capturar cualquier error y emitir un estado [GastoError].
   Future<void> _onDeleteGasto(DeleteGasto event, Emitter<GastoState> emit) async {
     try {
       final currentState = state;
       await _gastoRepository.deleteGasto(event.id);
       
-      // Intentar mantener el mes que se estaba visualizando
       if (currentState is GastoLoaded) {
         add(LoadGastos(currentState.selectedMonth));
       } else {
@@ -131,28 +156,30 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
     }
   }
 
-  /// Calcula el monto total, total de ingresos y total de gastos de una lista de gastos.
+  /// Calcula el monto total, total de ingresos, total de gastos y ahorros.
   ///
-  /// [gastos]: La lista de gastos a procesar.
-  /// [categoriasMap]: Un mapa de categorías para determinar el tipo de cada gasto.
-  /// Retorna un objeto [_Totals] con los montos calculados.
+  /// El total se calcula como: Ingresos - Gastos - Ahorros.
   _Totals _calculateTotals(List<Gasto> gastos, Map<int, Categoria> categoriasMap) {
     double total = 0.0;
     double income = 0.0;
     double expense = 0.0;
+    double savings = 0.0;
 
     for (var gasto in gastos) {
       final categoria = categoriasMap[gasto.idCategoria];
       if (categoria != null) {
         if (categoria.tipo == TipoCategoria.ingreso) {
           income += gasto.monto;
+        } else if (categoria.tipo == TipoCategoria.ahorro) {
+          savings += gasto.monto;
         } else {
           // GASTO y OCIO se consideran gastos para el balance general
           expense += gasto.monto;
         }
       }
     }
-    total = income - expense;
-    return _Totals(total, income, expense);
+    // Balance total: lo que entra menos lo que sale (gastos) y lo que se reserva (ahorro)
+    total = income - expense - savings;
+    return _Totals(total, income, expense, savings);
   }
 }
