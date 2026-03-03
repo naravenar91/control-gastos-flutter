@@ -84,7 +84,7 @@ class _MainScreenState extends State<MainScreen> {
                 );
               },
               icon: const Icon(Icons.add),
-              label: const Text('Nuevo Gasto'),
+              label: const Text('Nuevo Registro'),
               backgroundColor: Colors.green,
             )
           : null,

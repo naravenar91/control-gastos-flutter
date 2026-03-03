@@ -89,79 +89,95 @@ class ExportPage extends StatelessWidget {
         title: const Text('Exportar y Respaldo'),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.import_export, size: 80, color: Colors.blueGrey),
-              const SizedBox(height: 24),
-              const Text(
-                'Seleccione una opción para gestionar sus datos',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
               ),
-              const SizedBox(height: 40),
-              
-              // --- Sección de Exportación ---
-              const Text('REPORTES', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const Divider(),
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar exportación a PDF
-                },
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('Exportar a PDF'),
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar exportación a CSV
-                },
-                icon: const Icon(Icons.table_view),
-                label: const Text('Exportar a CSV/Excel'),
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // --- Sección de Respaldo ---
-              const Text('RESPALDO COMPLETO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-              const Divider(),
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed: () => _generateBackup(context),
-                icon: const Icon(Icons.backup),
-                label: const Text('Generar Respaldo (JSON)'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.indigo.shade700,
-                  foregroundColor: Colors.white,
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(Icons.import_export, size: 80, color: Colors.blueGrey),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Seleccione una opción para gestionar sus datos',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 40),
+                      
+                      // --- Sección de Exportación ---
+                      const Text('REPORTES', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // TODO: Implementar exportación a PDF
+                        },
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: const Text('Exportar a PDF'),
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // TODO: Implementar exportación a CSV
+                        },
+                        icon: const Icon(Icons.table_view),
+                        label: const Text('Exportar a CSV/Excel'),
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
+                      ),
+                      
+                      // Espaciador para empujar la siguiente sección al fondo
+                      const Spacer(),
+                      
+                      const SizedBox(height: 40),
+                      
+                      // --- Sección de Respaldo ---
+                      const Text('RESPALDO COMPLETO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => _generateBackup(context),
+                        icon: const Icon(Icons.backup),
+                        label: const Text('Generar Respaldo (JSON)'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.indigo.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () => _restoreData(context),
+                        icon: const Icon(Icons.restore),
+                        label: const Text('Restaurar Datos'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          side: BorderSide(color: Colors.indigo.shade700),
+                          foregroundColor: Colors.indigo.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'El respaldo permite transferir todos sus datos a otro dispositivo compatible.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      // Margen inferior para no chocar con el navbar
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: () => _restoreData(context),
-                icon: const Icon(Icons.restore),
-                label: const Text('Restaurar Datos'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  side: BorderSide(color: Colors.indigo.shade700),
-                  foregroundColor: Colors.indigo.shade700,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'El respaldo permite transferir todos sus datos a otro dispositivo compatible.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        }
       ),
     );
   }
