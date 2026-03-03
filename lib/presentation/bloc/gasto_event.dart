@@ -13,15 +13,14 @@ abstract class GastoEvent extends Equatable {
 
 /// Evento para solicitar la carga de todos los gastos.
 ///
-/// Puede incluir un rango de fechas opcional para filtrar los gastos.
+/// Filtra los gastos por el mes y año del [month] proporcionado.
 class LoadGastos extends GastoEvent {
-  final DateTime? startDate;
-  final DateTime? endDate;
+  final DateTime month;
 
-  const LoadGastos({this.startDate, this.endDate});
+  const LoadGastos(this.month);
 
   @override
-  List<Object> get props => [startDate ?? '', endDate ?? ''];
+  List<Object> get props => [month];
 }
 
 /// Evento para agregar un nuevo gasto.
@@ -29,6 +28,16 @@ class AddGasto extends GastoEvent {
   final Gasto gasto;
 
   const AddGasto(this.gasto);
+
+  @override
+  List<Object> get props => [gasto];
+}
+
+/// Evento para actualizar un gasto existente.
+class UpdateGasto extends GastoEvent {
+  final Gasto gasto;
+
+  const UpdateGasto(this.gasto);
 
   @override
   List<Object> get props => [gasto];

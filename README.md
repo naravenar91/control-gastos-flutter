@@ -15,3 +15,8 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+Modo depulacion USB:
+- ir deade el terminal a cd "C:\Users\narav\AppData\Local\Android\Sdk\platform-tools"
+- .\adb pair 192.168.100.93:37635
+- .\adb connect 192.168.100.93:PUERTO_NUEVO

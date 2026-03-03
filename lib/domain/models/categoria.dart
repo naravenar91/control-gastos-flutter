@@ -1,4 +1,4 @@
-import 'package:control_de_gastos/domain/models/tipo_categoria.dart';
+import 'tipo_categoria.dart';
 
 /// Clase que representa una categoría de gasto o ingreso.
 ///
@@ -11,8 +11,8 @@ class Categoria {
   /// Descripción de la categoría (ej. "Comida", "Transporte", "Salario").
   final String descripcion;
 
-  /// Código hexadecimal del color asociado a la categoría (ej. "#FF0000").
-  final String colorHex;
+  /// Valor entero del color asociado a la categoría (ARGB).
+  final int colorValue;
 
   /// Tipo de categoría, definido por el enum [TipoCategoria].
   final TipoCategoria tipo;
@@ -24,7 +24,7 @@ class Categoria {
   Categoria({
     required this.id,
     required this.descripcion,
-    required this.colorHex,
+    required this.colorValue,
     required this.tipo,
   });
 
@@ -34,13 +34,13 @@ class Categoria {
   Categoria copyWith({
     int? id,
     String? descripcion,
-    String? colorHex,
+    int? colorValue,
     TipoCategoria? tipo,
   }) {
     return Categoria(
       id: id ?? this.id,
       descripcion: descripcion ?? this.descripcion,
-      colorHex: colorHex ?? this.colorHex,
+      colorValue: colorValue ?? this.colorValue,
       tipo: tipo ?? this.tipo,
     );
   }
@@ -53,9 +53,9 @@ class Categoria {
     return Categoria(
       id: json['id'] as int,
       descripcion: json['descripcion'] as String,
-      colorHex: json['colorHex'] as String,
+      colorValue: json['colorValue'] as int,
       tipo: TipoCategoria.values.firstWhere(
-          (e) => e.toString().split('.').last == json['tipo'] as String),
+          (e) => e.toString().split('.').last.toLowerCase() == (json['tipo'] as String).toLowerCase()),
     );
   }
 
@@ -67,8 +67,18 @@ class Categoria {
     return {
       'id': id,
       'descripcion': descripcion,
-      'colorHex': colorHex,
+      'colorValue': colorValue,
       'tipo': tipo.toString().split('.').last,
     };
   }
-}
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Categoria &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+  }

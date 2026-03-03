@@ -22,6 +22,9 @@ dependencies:
   path: ^1.8.0 # To join paths
   flutter_bloc: ^8.1.3 # State management library
   equatable: ^2.0.5 # For value equality in BLoC states and events
+  fl_chart: ^1.1.1
+  share_plus: ^12.0.1
+  file_picker: ^10.3.10
   #intl: ^0.18.1 # For internationalization, including date and number formatting
 
 dev_dependencies:
@@ -31,6 +34,16 @@ dev_dependencies:
 
   drift_dev: ^2.14.0 # Code generator for drift
   build_runner: ^2.4.0 # Code generator runner
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/saving_money_logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/saving_money_logo.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/saving_money_logo.png

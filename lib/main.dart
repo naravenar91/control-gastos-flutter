@@ -12,7 +12,7 @@ import 'infrastructure/repositories/drift_presupuesto_repository.dart';
 import 'presentation/bloc/gasto_bloc.dart';
 import 'presentation/bloc/gasto_event.dart';
 import 'presentation/bloc/theme_cubit.dart';
-import 'presentation/pages/home_page.dart';
+import 'presentation/pages/main_screen.dart';
 import 'presentation/theme_provider.dart';
 
 /// Punto de entrada principal de la aplicación Flutter.
@@ -29,6 +29,9 @@ void main() {
     // a través del árbol de widgets. Esto permite que los BLoCs los consuman.
     MultiRepositoryProvider(
       providers: [
+        RepositoryProvider<AppDatabase>(
+          create: (context) => database,
+        ),
         RepositoryProvider<CategoriaRepository>(
           create: (context) => DriftCategoriaRepository(database),
         ),
@@ -51,7 +54,7 @@ void main() {
             create: (context) => GastoBloc(
               context.read<GastoRepository>(),
               context.read<CategoriaRepository>(),
-            )..add(const LoadGastos()), // Carga inicial de gastos al iniciar el BLoC.
+            )..add(LoadGastos(DateTime.now())), // Carga inicial de gastos para el mes actual.
           ),
         ],
         child: const MyApp(),
@@ -95,9 +98,10 @@ class MyApp extends StatelessWidget {
             Locale('en', 'US'), // Inglés (Estados Unidos)
             // Agrega más locales según sea necesario
           ],
-          home: const HomePage(),
-        );
-      },
-    );
-  }
-}
+          home: const MainScreen(),
+          );
+          },
+          );
+          }
+          }
+

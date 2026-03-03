@@ -24,6 +24,14 @@ class DriftCategoriaRepository implements CategoriaRepository {
   }
 
   @override
+  Stream<List<Categoria>> watchAllCategorias() {
+    // Observa los cambios en la tabla 'categorias' y emite una nueva lista de dominio.
+    return _db.select(_db.categorias).watch().map((entries) {
+      return entries.map((entry) => toDomainCategoria(entry)).toList();
+    });
+  }
+
+  @override
   Future<Categoria?> getCategoriaById(int id) async {
     // Realiza una consulta para obtener una categoría específica por su ID.
     // Utiliza el método 'where' para filtrar por el ID de la columna.
@@ -34,5 +42,27 @@ class DriftCategoriaRepository implements CategoriaRepository {
 
     // Si se encuentra la entrada, la convierte a un modelo de dominio 'Categoria'.
     return categoriaEntry != null ? toDomainCategoria(categoriaEntry) : null;
+  }
+
+  @override
+  Future<int> insertCategoria(Categoria categoria) async {
+    // Inserta una nueva categoría en la tabla 'categorias'.
+    // Convierte el objeto de dominio a un 'CategoriasCompanion' para Drift.
+    return await _db.into(_db.categorias).insert(toCategoriasCompanion(categoria));
+  }
+
+  @override
+  Future<bool> canDeleteCategoria(int id) async {
+    // Verifica si hay gastos asociados a esta categoría.
+    final countExp = _db.selectOnly(_db.gastos)..addColumns([_db.gastos.id.count()]);
+    countExp.where(_db.gastos.idCategoria.equals(id));
+    final result = await countExp.map((row) => row.read(_db.gastos.id.count())).getSingle();
+    return (result ?? 0) == 0;
+  }
+
+  @override
+  Future<void> deleteCategoria(int id) async {
+    // Elimina la categoría de la tabla 'categorias'.
+    await (_db.delete(_db.categorias)..where((tbl) => tbl.id.equals(id))).go();
   }
 }

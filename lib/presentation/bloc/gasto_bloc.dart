@@ -36,6 +36,7 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
     // Registra los manejadores de eventos.
     on<LoadGastos>(_onLoadGastos);
     on<AddGasto>(_onAddGasto);
+    on<UpdateGasto>(_onUpdateGasto);
     on<DeleteGasto>(_onDeleteGasto);
   }
 
@@ -51,22 +52,12 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
   Future<void> _onLoadGastos(LoadGastos event, Emitter<GastoState> emit) async {
     emit(const GastoLoading());
     try {
-      // 1. Obtener gastos
-      List<Gasto> gastos;
-      DateTime startOfMonth;
-      DateTime endOfMonth;
+      // 1. Obtener gastos filtrados por el mes seleccionado
+      final DateTime selectedDate = event.month;
+      final DateTime startOfMonth = DateTime(selectedDate.year, selectedDate.month, 1);
+      final DateTime endOfMonth = DateTime(selectedDate.year, selectedDate.month + 1, 0, 23, 59, 59);
 
-      if (event.startDate != null && event.endDate != null) {
-        startOfMonth = event.startDate!;
-        endOfMonth = event.endDate!;
-      } else {
-        final now = DateTime.now();
-        startOfMonth = DateTime(now.year, now.month, 1);
-        // Último día del mes actual, el '0' en el día crea el último día del mes anterior,
-        // al sumarle 1 al mes, obtenemos el primer día del siguiente mes, y al poner 0, el último del actual.
-        endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-      }
-      gastos = await _gastoRepository.getGastosByDateRange(startOfMonth, endOfMonth);
+      final List<Gasto> gastos = await _gastoRepository.getGastosByDateRange(startOfMonth, endOfMonth);
 
       // 2. Obtener categorías y crear un mapa para acceso rápido
       final List<Categoria> categorias = await _categoriaRepository.getAllCategorias();
@@ -83,6 +74,7 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
         incomeTotal: totals.income,
         expenseTotal: totals.expense,
         categoriasMap: categoriasMap,
+        selectedMonth: selectedDate,
       ));
     } catch (e) {
       emit(GastoError('Error al cargar gastos: $e'));
@@ -99,10 +91,20 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
   Future<void> _onAddGasto(AddGasto event, Emitter<GastoState> emit) async {
     try {
       await _gastoRepository.saveGasto(event.gasto);
-      // Después de agregar, recarga los gastos para actualizar la UI
-      add(LoadGastos());
+      // Después de agregar, recarga los gastos para el mismo mes
+      add(LoadGastos(event.gasto.fecha));
     } catch (e) {
-      emit(GastoError('Error al agregar gasto: $e'));
+      emit(GastoError('Error al agregar registro: $e'));
+    }
+  }
+
+  /// Manejador del evento [UpdateGasto].
+  Future<void> _onUpdateGasto(UpdateGasto event, Emitter<GastoState> emit) async {
+    try {
+      await _gastoRepository.saveGasto(event.gasto);
+      add(LoadGastos(event.gasto.fecha));
+    } catch (e) {
+      emit(GastoError('Error al actualizar registro: $e'));
     }
   }
 
@@ -115,11 +117,17 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
   /// 3. Capturar cualquier error y emitir un estado [GastoError].
   Future<void> _onDeleteGasto(DeleteGasto event, Emitter<GastoState> emit) async {
     try {
+      final currentState = state;
       await _gastoRepository.deleteGasto(event.id);
-      // Después de eliminar, recarga los gastos para actualizar la UI
-      add(LoadGastos());
+      
+      // Intentar mantener el mes que se estaba visualizando
+      if (currentState is GastoLoaded) {
+        add(LoadGastos(currentState.selectedMonth));
+      } else {
+        add(LoadGastos(DateTime.now()));
+      }
     } catch (e) {
-      emit(GastoError('Error al eliminar gasto: $e'));
+      emit(GastoError('Error al eliminar registro: $e'));
     }
   }
 
@@ -136,7 +144,7 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
     for (var gasto in gastos) {
       final categoria = categoriasMap[gasto.idCategoria];
       if (categoria != null) {
-        if (categoria.tipo == TipoCategoria.INGRESO) {
+        if (categoria.tipo == TipoCategoria.ingreso) {
           income += gasto.monto;
         } else {
           // GASTO y OCIO se consideran gastos para el balance general

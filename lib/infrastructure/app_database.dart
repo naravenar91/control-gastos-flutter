@@ -5,6 +5,7 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
+import 'dart:convert';
 
 import '../domain/models/categoria.dart' as domain_categoria;
 import '../domain/models/gasto.dart' as domain_gasto;
@@ -24,10 +25,10 @@ class Categorias extends Table {
   IntColumn get id => integer().autoIncrement()();
 
   /// Columna para la descripción de la categoría. Es un campo de texto no nulo.
-  TextColumn get descripcion => text().references(Categorias, #id)();
+  TextColumn get descripcion => text()();
 
-  /// Columna para el color en formato hexadecimal de la categoría. Es un campo de texto no nulo.
-  TextColumn get colorHex => text()();
+  /// Valor entero del color asociado a la categoría (ARGB).
+  IntColumn get colorValue => integer()();
 
   /// Columna para el tipo de categoría (INGRESO, GASTO, OCIO).
   /// Se almacena como un entero que representa el índice del enum `TipoCategoria`.
@@ -104,6 +105,42 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 1;
 
+  /// Estrategia de migración para la base de datos.
+  ///
+  /// Se ejecuta al crear la base de datos por primera vez.
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+
+          // Insertar categorías por defecto
+          await batch((batch) {
+            batch.insertAll(categorias, [
+              CategoriasCompanion.insert(
+                descripcion: 'Sueldo',
+                colorValue: 0xFF4CAF50, // Verde para ingresos
+                tipo: domain_tipo_categoria.TipoCategoria.ingreso.index,
+              ),
+              CategoriasCompanion.insert(
+                descripcion: 'Crédito ',
+                colorValue: 0xFFF44336, // Rojo
+                tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
+              ),
+              CategoriasCompanion.insert(
+                descripcion: 'Comida',
+                colorValue: 0xFFFF9800, // Naranja para comida
+                tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
+              ),
+              CategoriasCompanion.insert(
+                descripcion: 'Transporte',
+                colorValue: 0xFF2196F3, // Azul
+                tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
+              )
+            ]);
+          });
+        },
+      );
+
   /// Método para abrir la conexión de la base de datos.
   ///
   /// Determina la ubicación de la base de datos según la plataforma
@@ -121,6 +158,104 @@ class AppDatabase extends _$AppDatabase {
       return NativeDatabase.createInBackground(file);
     });
   }
+
+  // --- Funcionalidad de Respaldo y Restauración ---
+
+  /// Exporta todos los datos de la base de datos a un String JSON.
+  Future<String> exportToJson() async {
+    final allCategorias = await select(categorias).get();
+    final allGastos = await select(gastos).get();
+    final allPresupuestos = await select(presupuestosMensuales).get();
+
+    final data = {
+      'categorias': allCategorias.map((e) => e.toJson()).toList(),
+      'gastos': allGastos.map((e) => e.toJson()).toList(),
+      'presupuestos': allPresupuestos.map((e) => e.toJson()).toList(),
+    };
+
+    return jsonEncode(data);
+  }
+
+  /// Importa datos desde un String JSON a la base de datos, evitando duplicados.
+  Future<void> importFromJson(String jsonString) async {
+    final Map<String, dynamic> data = jsonDecode(jsonString);
+
+    await transaction(() async {
+      // 1. Importar Categorías y crear mapa de ID antiguo -> ID nuevo
+      final Map<int, int> categoriaIdMap = {};
+      final List<dynamic> categoriasJson = data['categorias'] ?? [];
+
+      for (final catJson in categoriasJson) {
+        final entry = CategoriaEntry.fromJson(catJson);
+        
+        // Verificar si existe por descripción y tipo
+        final existing = await (select(categorias)
+              ..where((t) => t.descripcion.equals(entry.descripcion) & t.tipo.equals(entry.tipo)))
+            .getSingleOrNull();
+
+        if (existing != null) {
+          categoriaIdMap[entry.id] = existing.id;
+        } else {
+          final newId = await into(categorias).insert(CategoriasCompanion.insert(
+            descripcion: entry.descripcion,
+            colorValue: entry.colorValue,
+            tipo: entry.tipo,
+          ));
+          categoriaIdMap[entry.id] = newId;
+        }
+      }
+
+      // 2. Importar Gastos
+      final List<dynamic> gastosJson = data['gastos'] ?? [];
+      for (final gastoJson in gastosJson) {
+        final entry = GastoEntry.fromJson(gastoJson);
+        final newIdCategoria = categoriaIdMap[entry.idCategoria];
+
+        if (newIdCategoria != null) {
+          // Verificar duplicado (misma desc, monto, fecha y categoria)
+          final existing = await (select(gastos)
+                ..where((t) =>
+                    t.descripcion.equals(entry.descripcion) &
+                    t.monto.equals(entry.monto) &
+                    t.fecha.equals(entry.fecha) &
+                    t.idCategoria.equals(newIdCategoria)))
+              .getSingleOrNull();
+
+          if (existing == null) {
+            await into(gastos).insert(GastosCompanion.insert(
+              descripcion: entry.descripcion,
+              monto: entry.monto,
+              fecha: entry.fecha,
+              activo: entry.activo,
+              idCategoria: newIdCategoria,
+              esFijo: entry.esFijo,
+            ));
+          }
+        }
+      }
+
+      // 3. Importar Presupuestos
+      final List<dynamic> presupuestosJson = data['presupuestos'] ?? [];
+      for (final presuJson in presupuestosJson) {
+        final entry = PresupuestoMensualEntry.fromJson(presuJson);
+        final newIdCategoria = categoriaIdMap[entry.idCategoria];
+
+        if (newIdCategoria != null) {
+          final existing = await (select(presupuestosMensuales)
+                ..where((t) => t.mes.equals(entry.mes) & t.idCategoria.equals(newIdCategoria)))
+              .getSingleOrNull();
+
+          if (existing == null) {
+            await into(presupuestosMensuales).insert(PresupuestosMensualesCompanion.insert(
+              mes: entry.mes,
+              idCategoria: newIdCategoria,
+              montoLimite: entry.montoLimite,
+            ));
+          }
+        }
+      }
+    });
+  }
 }
 
 /// --- Mappers de Dominio a Drift y viceversa ---
@@ -128,9 +263,9 @@ class AppDatabase extends _$AppDatabase {
 /// Convierte un objeto `domain_categoria.Categoria` a un `CategoriasCompanion` para inserción/actualización en Drift.
 CategoriasCompanion toCategoriasCompanion(domain_categoria.Categoria categoria) {
   return CategoriasCompanion(
-    id: Value(categoria.id),
+    id: categoria.id == 0 ? const Value.absent() : Value(categoria.id),
     descripcion: Value(categoria.descripcion),
-    colorHex: Value(categoria.colorHex),
+    colorValue: Value(categoria.colorValue),
     tipo: Value(categoria.tipo.index), // Almacena el índice del enum
   );
 }
@@ -140,7 +275,7 @@ domain_categoria.Categoria toDomainCategoria(CategoriaEntry entry) {
   return domain_categoria.Categoria(
     id: entry.id,
     descripcion: entry.descripcion,
-    colorHex: entry.colorHex,
+    colorValue: entry.colorValue,
     tipo: domain_tipo_categoria.TipoCategoria.values[entry.tipo], // Recrea el enum desde el índice
   );
 }
@@ -148,7 +283,7 @@ domain_categoria.Categoria toDomainCategoria(CategoriaEntry entry) {
 /// Convierte un objeto `domain_gasto.Gasto` a un `GastosCompanion` para inserción/actualización en Drift.
 GastosCompanion toGastosCompanion(domain_gasto.Gasto gasto) {
   return GastosCompanion(
-    id: Value(gasto.id),
+    id: gasto.id == 0 ? const Value.absent() : Value(gasto.id),
     descripcion: Value(gasto.descripcion),
     monto: Value(gasto.monto),
     fecha: Value(gasto.fecha),
@@ -174,7 +309,7 @@ domain_gasto.Gasto toDomainGasto(GastoEntry entry) {
 /// Convierte un objeto `domain_presupuesto.PresupuestoMensual` a un `PresupuestosMensualesCompanion` para inserción/actualización en Drift.
 PresupuestosMensualesCompanion toPresupuestosMensualesCompanion(domain_presupuesto.PresupuestoMensual presupuesto) {
   return PresupuestosMensualesCompanion(
-    id: Value(presupuesto.id),
+    id: presupuesto.id == 0 ? const Value.absent() : Value(presupuesto.id),
     mes: Value(presupuesto.mes),
     idCategoria: Value(presupuesto.idCategoria),
     montoLimite: Value(presupuesto.montoLimite),
