@@ -244,14 +244,171 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
     );
   }
 
+  /// Muestra un diálogo para crear una nueva categoría.
+  Future<void> _showCreateCategoriaDialog() async {
+    final TextEditingController categoriaController = TextEditingController();
+    TipoCategoria selectedTipo = TipoCategoria.gasto;
+    Color selectedColor = Colors.orange;
+    
+    final List<Color> availableColors = [
+      Colors.green,
+      Colors.red,
+      Colors.blue,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.amber,
+      Colors.indigo,
+      const Color(0xFF00BFFF), // Celeste Ahorro
+    ];
+    
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Nueva Categoría'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: categoriaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre',
+                    hintText: 'Ej: Supermercado, Salario...',
+                  ),
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 15),
+                const Text('Tipo:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<TipoCategoria>(
+                        title: const Text('Gasto', style: TextStyle(fontSize: 10)),
+                        value: TipoCategoria.gasto,
+                        groupValue: selectedTipo,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<TipoCategoria>(
+                        title: const Text('Ingreso', style: TextStyle(fontSize: 10)),
+                        value: TipoCategoria.ingreso,
+                        groupValue: selectedTipo,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<TipoCategoria>(
+                        title: const Text('Ahorro', style: TextStyle(fontSize: 10)),
+                        value: TipoCategoria.ahorro,
+                        groupValue: selectedTipo,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                const Text('Color:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 40,
+                  width: double.maxFinite,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: availableColors.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final color = availableColors[index];
+                      final isSelected = color.value == selectedColor.value;
+                      return GestureDetector(
+                        onTap: () => setDialogState(() => selectedColor = color),
+                        child: Container(
+                          width: 35,
+                          height: 35,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
+                          ),
+                          child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final nombre = categoriaController.text.trim();
+                if (nombre.isNotEmpty) {
+                  final newCategoria = Categoria(
+                    id: 0,
+                    descripcion: nombre,
+                    colorValue: selectedColor.value,
+                    tipo: selectedTipo,
+                  );
+                  
+                  try {
+                    final newId = await context.read<CategoriaRepository>().insertCategoria(newCategoria);
+                    if (mounted) {
+                      setState(() {
+                        _selectedCategoria = newCategoria.copyWith(id: newId);
+                      });
+                      Navigator.pop(context);
+                    }
+                  } catch (e) {
+                    _showSnackBar('Error al crear categoría: $e', Colors.red);
+                  }
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoriasSelector() {
     return StreamBuilder<List<Categoria>>(
       stream: context.read<CategoriaRepository>().watchAllCategorias(),
       builder: (context, snapshot) {
-        final categorias = snapshot.data ?? [];
-        if (categorias.isEmpty) return const Text('Cargando categorías...');
+        final categoriasRaw = snapshot.data ?? [];
+        if (categoriasRaw.isEmpty && snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        if (_selectedCategoria == null) {
+        // Ordenar categorías: 1. Sueldo, 2. Crédito, 3. Ahorro, luego alfabéticamente
+        final categorias = List<Categoria>.from(categoriasRaw);
+        categorias.sort((a, b) {
+          int getPriority(String desc) {
+            final d = desc.toLowerCase();
+            if (d == 'sueldo') return 0;
+            if (d == 'crédito' || d == 'credito') return 1;
+            if (d == 'ahorro') return 2;
+            return 3;
+          }
+          final pA = getPriority(a.descripcion);
+          final pB = getPriority(b.descripcion);
+          if (pA != pB) return pA.compareTo(pB);
+          return a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase());
+        });
+
+        if (_selectedCategoria == null && categorias.isNotEmpty) {
           _selectedCategoria = widget.gasto != null 
             ? categorias.firstWhere((c) => c.id == widget.gasto!.idCategoria, orElse: () => categorias.first)
             : categorias.first;
@@ -261,15 +418,29 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
           height: 50,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: categorias.length,
+            itemCount: categorias.length + 1,
             separatorBuilder: (context, index) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
+              if (index == categorias.length) {
+                return ActionChip(
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: const Text('Nueva'),
+                  onPressed: _showCreateCategoriaDialog,
+                );
+              }
+
               final cat = categorias[index];
               final isSelected = _selectedCategoria?.id == cat.id;
+              final color = Color(cat.colorValue);
+
               return ChoiceChip(
                 label: Text(cat.descripcion),
                 selected: isSelected,
-                onSelected: (selected) => setState(() => _selectedCategoria = cat),
+                selectedColor: color.withOpacity(0.3),
+                side: isSelected ? BorderSide(color: color, width: 2) : null,
+                onSelected: (selected) {
+                  if (selected) setState(() => _selectedCategoria = cat);
+                },
               );
             },
           ),
