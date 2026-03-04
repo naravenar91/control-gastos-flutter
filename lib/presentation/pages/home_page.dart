@@ -8,12 +8,9 @@ import '../../domain/models/tipo_categoria.dart';
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
 import '../bloc/gasto_state.dart';
-import '../widgets/add_gasto_sheet.dart'; // Importar el AddGastoSheet
+import '../widgets/add_gasto_sheet.dart';
 
 /// La pantalla principal de la aplicación que muestra un resumen de gastos e ingresos.
-///
-/// Utiliza un [CustomScrollView] con un [SliverAppBar] que desaparece
-/// y un resumen en forma de tarjeta, seguido de una lista de gastos recientes.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -24,8 +21,6 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Se asegura que el BLoC esté disponible en el árbol de widgets.
-    // Esto es un ejemplo, en una app real se inyectaría con un Provider/RepositoryProvider.
     return BlocBuilder<GastoBloc, GastoState>(
       builder: (context, state) {
         if (state is GastoLoading) {
@@ -33,26 +28,12 @@ class HomePage extends StatelessWidget {
         } else if (state is GastoError) {
           return Center(child: Text('Error: ${state.message}'));
         } else if (state is GastoLoaded) {
-          final NumberFormat currencyFormat =
-              NumberFormat.decimalPattern('es_CL');
+          final NumberFormat currencyFormat = NumberFormat.decimalPattern('es_CL');
           final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
-
-          // Utiliza el saldo total calculado en el BLoC (Ingresos - Gastos - Ahorros)
           final double balanceTotal = state.totalMes;
-
-          // Función auxiliar para formatear montos con signo y símbolo al inicio
-          String formatAmount(double amount, TipoCategoria? tipo) {
-            final String formatted = currencyFormat.format(amount.abs());
-            if (tipo == TipoCategoria.ingreso) return '+\$ $formatted';
-            if (tipo == TipoCategoria.ahorro) return '\$ $formatted';
-            if (tipo == TipoCategoria.gasto || tipo == TipoCategoria.ocio) return '-\$ $formatted';
-            return '\$ $formatted';
-          }
 
           return CustomScrollView(
             slivers: [
-              /// SliverAppBar que desaparece al hacer scroll.
-              /// Muestra el saldo total del mes.
               SliverAppBar(
                 expandedHeight: 220.0,
                 pinned: true,
@@ -97,31 +78,24 @@ class HomePage extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
-                        const SizedBox(height: 40), // Espacio para que el título del FlexibleSpaceBar no choque
+                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
                 ),
               ),
-
-              /// Tarjeta de Resumen con Ingresos vs. Gastos.
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Card(
                     elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Resumen Mensual',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
+                          Text('Resumen Mensual', style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -129,10 +103,7 @@ class HomePage extends StatelessWidget {
                               const Text('Ingresos:'),
                               Text(
                                 '+\$ ${currencyFormat.format(state.incomeTotal)}',
-                                style: TextStyle(
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -143,10 +114,7 @@ class HomePage extends StatelessWidget {
                               const Text('Gastos:'),
                               Text(
                                 '-\$ ${currencyFormat.format(state.expenseTotal)}',
-                                style: TextStyle(
-                                  color: Colors.red.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -156,107 +124,158 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ),
-
-              /// Lista de Gastos Recientes.
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (BuildContext context, int index) {
-                    final Gasto gasto = state.gastos[index];
-                    final Categoria? categoria = state.categoriasMap[gasto.idCategoria];
+                  (context, index) {
+                    final Map<int, List<Gasto>> groupedGastos = {};
+                    for (var g in state.gastos) {
+                      groupedGastos.putIfAbsent(g.idCategoria, () => []).add(g);
+                    }
+                    final List<int> categoryIds = groupedGastos.keys.toList();
+                    if (index >= categoryIds.length) return null;
 
-                    // Determina el color del monto según el color de su categoría en la DB
-                    Color montoColor = Theme.of(context).colorScheme.onSurface;
-                    if (categoria != null) {
-                      if (categoria.tipo == TipoCategoria.ahorro) {
-                        montoColor = const Color(0xFF00BFFF);
-                      } else {
-                        montoColor = Color(categoria.colorValue);
-                      }
+                    final int catId = categoryIds[index];
+                    final List<Gasto> items = groupedGastos[catId]!;
+                    final Categoria? categoria = state.categoriasMap[catId];
+                    final double totalGroup = items.fold(0, (sum, item) => sum + item.monto);
+                    final Color themeColor = categoria != null 
+                        ? (categoria.tipo == TipoCategoria.ahorro ? const Color(0xFF00BFFF) : Color(categoria.colorValue))
+                        : Theme.of(context).colorScheme.secondary;
+
+                    if (items.length == 1) {
+                      return _buildGastoTile(context, items.first, categoria, themeColor, currencyFormat, dateFormat);
                     }
 
-                    return Dismissible(
-                      key: ValueKey(gasto.id),
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20.0),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      direction: DismissDirection.endToStart,
-                      confirmDismiss: (direction) async {
-                        return await showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text('Confirmar eliminación'),
-                              content: Text('¿Estás seguro de que deseas eliminar el registro "${gasto.descripcion}"?'),
-                              actions: <Widget>[
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
-                                  child: const Text('CANCELAR'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
-                                  child: const Text('ELIMINAR', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                      onDismissed: (direction) {
-                        context.read<GastoBloc>().add(DeleteGasto(gasto.id));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Registro ${gasto.descripcion} eliminado')),
-                        );
-                      },
-                      child: Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                        elevation: 1,
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: categoria != null
-                                ? Color(categoria.colorValue)
-                                : Theme.of(context).colorScheme.secondary,
-                            child: Text(
-                              categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
-                              style: const TextStyle(color: Colors.white),
-                            ),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                      elevation: 1,
+                      child: ExpansionTile(
+                        shape: const RoundedRectangleBorder(side: BorderSide.none),
+                        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                        leading: CircleAvatar(
+                          backgroundColor: themeColor,
+                          child: Text(
+                            categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
+                            style: const TextStyle(color: Colors.white),
                           ),
-                          title: Row(
-                            children: [
-                              Expanded(child: Text(gasto.descripcion)),
-                              if (gasto.esFijo)
-                                const Icon(Icons.autorenew, size: 16, color: Colors.blueGrey),
-                            ],
-                          ),
-                          subtitle: Text(dateFormat.format(gasto.fecha)),
-                          trailing: Text(
-                            formatAmount(gasto.monto, categoria?.tipo),
-                            style: TextStyle(
-                              color: montoColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              builder: (context) => AddGastoSheet(gasto: gasto),
-                            );
-                          },
                         ),
+                        title: Text(categoria?.descripcion ?? 'Sin Categoría', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${items.length} registros'),
+                        trailing: Text(
+                          _formatWithSign(totalGroup, categoria?.tipo, currencyFormat),
+                          style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        children: items.map((gasto) => _buildGastoDetailTile(context, gasto, categoria, themeColor, currencyFormat, dateFormat)).toList(),
                       ),
                     );
                   },
-                  childCount: state.gastos.length,
+                  childCount: state.gastos.map((g) => g.idCategoria).toSet().length,
                 ),
               ),
             ],
           );
         }
-        return const SizedBox.shrink(); // Estado inicial o desconocido
+        return const SizedBox.shrink();
       },
     );
   }
+
+  Widget _buildGastoTile(BuildContext context, Gasto gasto, Categoria? categoria, Color color, NumberFormat format, DateFormat dateFormat) {
+    return Dismissible(
+      key: ValueKey(gasto.id),
+      background: _buildDeleteBackground(),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (dir) => _confirmDeletion(context, gasto),
+      onDismissed: (dir) => _handleDeletion(context, gasto),
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        elevation: 1,
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: color,
+            child: Text(
+              categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          title: Row(
+            children: [
+              Expanded(child: Text(gasto.descripcion)),
+              if (gasto.esFijo) const Icon(Icons.autorenew, size: 16, color: Colors.blueGrey),
+            ],
+          ),
+          subtitle: Text(dateFormat.format(gasto.fecha)),
+          trailing: Text(
+            _formatWithSign(gasto.monto, categoria?.tipo, format),
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+          onTap: () => _openEditSheet(context, gasto),
+        ),
+      ),
+    );
   }
+
+  Widget _buildGastoDetailTile(BuildContext context, Gasto gasto, Categoria? categoria, Color color, NumberFormat format, DateFormat dateFormat) {
+    return Dismissible(
+      key: ValueKey(gasto.id),
+      background: _buildDeleteBackground(),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (dir) => _confirmDeletion(context, gasto),
+      onDismissed: (dir) => _handleDeletion(context, gasto),
+      child: ListTile(
+        contentPadding: const EdgeInsets.only(left: 72.0, right: 16.0),
+        title: Text(gasto.descripcion, style: const TextStyle(fontSize: 14)),
+        subtitle: Text(dateFormat.format(gasto.fecha), style: const TextStyle(fontSize: 12)),
+        trailing: Text(
+          _formatWithSign(gasto.monto, categoria?.tipo, format),
+          style: TextStyle(color: color.withOpacity(0.8), fontSize: 13),
+        ),
+        onTap: () => _openEditSheet(context, gasto),
+      ),
+    );
+  }
+
+  String _formatWithSign(double amount, TipoCategoria? tipo, NumberFormat format) {
+    final String formatted = format.format(amount.abs());
+    if (tipo == TipoCategoria.ingreso) return '+\$ $formatted';
+    if (tipo == TipoCategoria.ahorro) return '\$ $formatted';
+    if (tipo == TipoCategoria.gasto || tipo == TipoCategoria.ocio) return '-\$ $formatted';
+    return '\$ $formatted';
+  }
+
+  Widget _buildDeleteBackground() {
+    return Container(
+      color: Colors.red,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20.0),
+      child: const Icon(Icons.delete, color: Colors.white),
+    );
+  }
+
+  Future<bool?> _confirmDeletion(BuildContext context, Gasto gasto) async {
+    return await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar eliminación'),
+        content: Text('¿Estás seguro de eliminar "${gasto.descripcion}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ELIMINAR', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+  }
+
+  void _handleDeletion(BuildContext context, Gasto gasto) {
+    context.read<GastoBloc>().add(DeleteGasto(gasto.id));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registro ${gasto.descripcion} eliminado')));
+  }
+
+  void _openEditSheet(BuildContext context, Gasto gasto) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => AddGastoSheet(gasto: gasto),
+    );
+  }
+}
