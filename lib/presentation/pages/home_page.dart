@@ -8,12 +8,9 @@ import '../../domain/models/tipo_categoria.dart';
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
 import '../bloc/gasto_state.dart';
-import '../widgets/add_gasto_sheet.dart'; // Importar el AddGastoSheet
+import '../widgets/add_gasto_sheet.dart';
 
 /// La pantalla principal de la aplicación que muestra un resumen de gastos e ingresos.
-///
-/// Utiliza un [CustomScrollView] con un [SliverAppBar] que desaparece
-/// y un resumen en forma de tarjeta, seguido de una lista de gastos recientes.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -24,8 +21,6 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Se asegura que el BLoC esté disponible en el árbol de widgets.
-    // Esto es un ejemplo, en una app real se inyectaría con un Provider/RepositoryProvider.
     return BlocBuilder<GastoBloc, GastoState>(
       builder: (context, state) {
         if (state is GastoLoading) {
@@ -33,225 +28,266 @@ class HomePage extends StatelessWidget {
         } else if (state is GastoError) {
           return Center(child: Text('Error: ${state.message}'));
         } else if (state is GastoLoaded) {
-          final NumberFormat currencyFormat =
-              NumberFormat.currency(locale: 'es_CL', symbol: '\$', decimalDigits: 0);
+          final NumberFormat currencyFormat = NumberFormat.decimalPattern('es_CL');
           final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
+          final double balanceTotal = state.totalMes;
 
-          // Calcula el saldo total para mostrar en el SliverAppBar
-          final double balanceTotal = state.incomeTotal - state.expenseTotal;
-
-          // Función auxiliar para formatear montos con signo
-          String formatAmount(double amount, TipoCategoria? tipo) {
-            final String formatted = currencyFormat.format(amount.abs());
-            if (tipo == TipoCategoria.ingreso) return '+$formatted';
-            if (tipo == TipoCategoria.gasto || tipo == TipoCategoria.ocio) return '-$formatted';
-            return formatted;
-          }
-
-          return CustomScrollView(
-            slivers: [
-              /// SliverAppBar que desaparece al hacer scroll.
-              /// Muestra el saldo total del mes.
-              SliverAppBar(
-                expandedHeight: 220.0,
-                pinned: true,
-                flexibleSpace: FlexibleSpaceBar(
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
-                        onPressed: () => _changeMonth(context, state.selectedMonth, -1),
-                      ),
-                      Text(
-                        '${DateFormat('MMMM yyyy', 'es_CL').format(state.selectedMonth).toUpperCase()} ',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right, color: Colors.white, size: 20),
-                        onPressed: () => _changeMonth(context, state.selectedMonth, 1),
-                      ),
-                    ],
-                  ),
-                  centerTitle: true,
-                  background: Container(
-                    color: balanceTotal >= 0 ? Colors.green.shade600 : Colors.red.shade600,
-                    alignment: Alignment.center,
-                    child: Column(
+          return Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 220.0,
+                  pinned: true,
+                  flexibleSpace: FlexibleSpaceBar(
+                    title: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'Saldo del Mes',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimary,
-                              ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
+                          onPressed: () => _changeMonth(context, state.selectedMonth, -1),
                         ),
                         Text(
-                          '${balanceTotal >= 0 ? '+' : '-'}${currencyFormat.format(balanceTotal.abs())}',
-                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          '${DateFormat('MMMM yyyy', 'es_CL').format(state.selectedMonth).toUpperCase()} ',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.onPrimary,
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
-                        const SizedBox(height: 40), // Espacio para que el título del FlexibleSpaceBar no choque
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right, color: Colors.white, size: 20),
+                          onPressed: () => _changeMonth(context, state.selectedMonth, 1),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-              ),
-
-              /// Tarjeta de Resumen con Ingresos vs. Gastos.
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                    centerTitle: true,
+                    background: Container(
+                      color: balanceTotal >= 0 ? Colors.green.shade600 : Colors.red.shade600,
+                      alignment: Alignment.center,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Resumen Mensual',
-                            style: Theme.of(context).textTheme.titleMedium,
+                            'Saldo del Mes',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onPrimary,
+                                ),
                           ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Ingresos:'),
-                              Text(
-                                '+${currencyFormat.format(state.incomeTotal)}',
-                                style: TextStyle(
-                                  color: Colors.green.shade700,
+                          Text(
+                            '${balanceTotal >= 0 ? '\$ ' : '-\$ '}${currencyFormat.format(balanceTotal.abs())}',
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                  color: Theme.of(context).colorScheme.onPrimary,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ),
-                            ],
                           ),
-                          const SizedBox(height: 5),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Gastos:'),
-                              Text(
-                                '-${currencyFormat.format(state.expenseTotal)}',
-                                style: TextStyle(
-                                  color: Colors.red.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                          const SizedBox(height: 40),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-
-              /// Lista de Gastos Recientes.
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (BuildContext context, int index) {
-                    final Gasto gasto = state.gastos[index];
-                    final Categoria? categoria = state.categoriasMap[gasto.idCategoria];
-
-                    // Determina el color del monto según el tipo de categoría
-                    Color montoColor = Theme.of(context).colorScheme.onSurface;
-                    if (categoria != null) {
-                      if (categoria.tipo == TipoCategoria.ingreso) {
-                        montoColor = Colors.green.shade700;
-                      } else if (categoria.tipo == TipoCategoria.gasto ||
-                          categoria.tipo == TipoCategoria.ocio) {
-                        montoColor = Colors.red.shade700;
-                      }
-                    }
-
-                    return Dismissible(
-                      key: ValueKey(gasto.id),
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20.0),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      direction: DismissDirection.endToStart,
-                      confirmDismiss: (direction) async {
-                        return await showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text('Confirmar eliminación'),
-                              content: Text('¿Estás seguro de que deseas eliminar el registro "${gasto.descripcion}"?'),
-                              actions: <Widget>[
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(false),
-                                  child: const Text('CANCELAR'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(true),
-                                  child: const Text('ELIMINAR', style: TextStyle(color: Colors.red)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Resumen Mensual', style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Ingresos:'),
+                                Text(
+                                  '+\$ ${currencyFormat.format(state.incomeTotal)}',
+                                  style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold),
                                 ),
                               ],
-                            );
-                          },
-                        );
-                      },
-                      onDismissed: (direction) {
-                        context.read<GastoBloc>().add(DeleteGasto(gasto.id));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Registro ${gasto.descripcion} eliminado')),
-                        );
-                      },
-                      child: Card(
+                            ),
+                            const SizedBox(height: 5),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Gastos:'),
+                                Text(
+                                  '-\$ ${currencyFormat.format(state.expenseTotal)}',
+                                  style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final Map<int, List<Gasto>> groupedGastos = {};
+                      for (var g in state.gastos) {
+                        groupedGastos.putIfAbsent(g.idCategoria, () => []).add(g);
+                      }
+                      final List<int> categoryIds = groupedGastos.keys.toList();
+                      if (index >= categoryIds.length) return null;
+
+                      final int catId = categoryIds[index];
+                      final List<Gasto> items = groupedGastos[catId]!;
+                      final Categoria? categoria = state.categoriasMap[catId];
+                      final double totalGroup = items.fold(0, (sum, item) => sum + item.monto);
+                      final Color themeColor = categoria != null 
+                          ? (categoria.tipo == TipoCategoria.ahorro ? const Color(0xFF00BFFF) : Color(categoria.colorValue))
+                          : Theme.of(context).colorScheme.secondary;
+
+                      if (items.length == 1) {
+                        return _buildGastoTile(context, items.first, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth);
+                      }
+
+                      return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                         elevation: 1,
-                        child: ListTile(
+                        child: ExpansionTile(
+                          shape: const RoundedRectangleBorder(side: BorderSide.none),
+                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
                           leading: CircleAvatar(
-                            backgroundColor: categoria != null
-                                ? Color(categoria.colorValue)
-                                : Theme.of(context).colorScheme.secondary,
+                            backgroundColor: themeColor,
                             child: Text(
                               categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
-                          title: Text(gasto.descripcion),
-
-                          subtitle: Text(dateFormat.format(gasto.fecha)),
+                          title: Text(categoria?.descripcion ?? 'Sin Categoría', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${items.length} registros'),
                           trailing: Text(
-                            formatAmount(gasto.monto, categoria?.tipo),
-                            style: TextStyle(
-                              color: montoColor,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            _formatWithSign(totalGroup, categoria?.tipo, currencyFormat),
+                            style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 15),
                           ),
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              builder: (context) => AddGastoSheet(gasto: gasto),
-                            );
-                          },
+                          children: items.map((gasto) => _buildGastoDetailTile(context, gasto, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth)).toList(),
                         ),
-                      ),
-                    );
-                  },
-                  childCount: state.gastos.length,
+                      );
+                    },
+                    childCount: state.gastos.map((g) => g.idCategoria).toSet().length,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) => AddGastoSheet(selectedMonth: state.selectedMonth),
+                );
+              },
+              child: const Icon(Icons.add),
+            ),
           );
         }
-        return const SizedBox.shrink(); // Estado inicial o desconocido
+        return const SizedBox.shrink();
       },
     );
   }
+
+  Widget _buildGastoTile(BuildContext context, Gasto gasto, Categoria? categoria, Color color, NumberFormat format, DateFormat dateFormat, DateTime selectedMonth) {
+    return Dismissible(
+      key: ValueKey(gasto.id),
+      background: _buildDeleteBackground(),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (dir) => _confirmDeletion(context, gasto),
+      onDismissed: (dir) => _handleDeletion(context, gasto),
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        elevation: 1,
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: color,
+            child: Text(
+              categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+          title: Row(
+            children: [
+              Expanded(child: Text(gasto.descripcion)),
+              if (gasto.esFijo) const Icon(Icons.autorenew, size: 16, color: Colors.blueGrey),
+            ],
+          ),
+          subtitle: Text(dateFormat.format(gasto.fecha)),
+          trailing: Text(
+            _formatWithSign(gasto.monto, categoria?.tipo, format),
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+          onTap: () => _openEditSheet(context, gasto, selectedMonth),
+        ),
+      ),
+    );
   }
+
+  Widget _buildGastoDetailTile(BuildContext context, Gasto gasto, Categoria? categoria, Color color, NumberFormat format, DateFormat dateFormat, DateTime selectedMonth) {
+    return Dismissible(
+      key: ValueKey(gasto.id),
+      background: _buildDeleteBackground(),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (dir) => _confirmDeletion(context, gasto),
+      onDismissed: (dir) => _handleDeletion(context, gasto),
+      child: ListTile(
+        contentPadding: const EdgeInsets.only(left: 72.0, right: 16.0),
+        title: Text(gasto.descripcion, style: const TextStyle(fontSize: 14)),
+        subtitle: Text(dateFormat.format(gasto.fecha), style: const TextStyle(fontSize: 12)),
+        trailing: Text(
+          _formatWithSign(gasto.monto, categoria?.tipo, format),
+          style: TextStyle(color: color.withOpacity(0.8), fontSize: 13),
+        ),
+        onTap: () => _openEditSheet(context, gasto, selectedMonth),
+      ),
+    );
+  }
+
+  String _formatWithSign(double amount, TipoCategoria? tipo, NumberFormat format) {
+    final String formatted = format.format(amount.abs());
+    if (tipo == TipoCategoria.ingreso) return '+\$ $formatted';
+    if (tipo == TipoCategoria.ahorro) return '\$ $formatted';
+    if (tipo == TipoCategoria.gasto || tipo == TipoCategoria.ocio) return '-\$ $formatted';
+    return '\$ $formatted';
+  }
+
+  Widget _buildDeleteBackground() {
+    return Container(
+      color: Colors.red,
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20.0),
+      child: const Icon(Icons.delete, color: Colors.white),
+    );
+  }
+
+  Future<bool?> _confirmDeletion(BuildContext context, Gasto gasto) async {
+    return await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar eliminación'),
+        content: Text('¿Estás seguro de eliminar "${gasto.descripcion}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ELIMINAR', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+  }
+
+  void _handleDeletion(BuildContext context, Gasto gasto) {
+    context.read<GastoBloc>().add(DeleteGasto(gasto.id));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registro ${gasto.descripcion} eliminado')));
+  }
+
+  void _openEditSheet(BuildContext context, Gasto gasto, DateTime selectedMonth) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => AddGastoSheet(gasto: gasto, selectedMonth: selectedMonth),
+    );
+  }
+}

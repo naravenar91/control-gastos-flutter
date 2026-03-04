@@ -25,6 +25,9 @@ dependencies:
   fl_chart: ^1.1.1
   share_plus: ^12.0.1
   file_picker: ^10.3.10
+  shared_preferences: ^2.5.4
+  flutter_local_notifications: ^21.0.0-dev.2
+  timezone: ^0.11.0
   #intl: ^0.18.1 # For internationalization, including date and number formatting
 
 dev_dependencies:

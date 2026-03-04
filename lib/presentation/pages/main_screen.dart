@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'home_page.dart';
 import 'charts_page.dart';
 import 'export_page.dart';
 import 'categorias_page.dart';
+import 'settings_page.dart';
 import '../widgets/add_gasto_sheet.dart';
+import '../bloc/gasto_bloc.dart';
+import '../bloc/gasto_state.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -21,6 +25,7 @@ class _MainScreenState extends State<MainScreen> {
     const ChartsPage(),
     const CategoriasPage(),
     const ExportPage(),
+    const SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -72,20 +77,29 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.file_upload),
             label: 'Exportar',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Ajustes',
+          ),
         ],
       ),
       floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (context) => const AddGastoSheet(),
+          ? BlocBuilder<GastoBloc, GastoState>(
+              builder: (context, state) {
+                return FloatingActionButton.extended(
+                  onPressed: () {
+                    final currentMonth = (state is GastoLoaded) ? state.selectedMonth : DateTime.now();
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (context) => AddGastoSheet(selectedMonth: currentMonth),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nuevo Registro'),
+                  backgroundColor: Colors.green,
                 );
               },
-              icon: const Icon(Icons.add),
-              label: const Text('Nuevo Registro'),
-              backgroundColor: Colors.green,
             )
           : null,
     );

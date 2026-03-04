@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/models/categoria.dart';
 import '../../domain/models/gasto.dart';
@@ -12,50 +13,69 @@ import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
 
 /// Un Modal Bottom Sheet para agregar o editar gastos.
-///
-/// Permite al usuario introducir detalles como la descripción, el monto,
-/// la categoría, la fecha y si es un gasto fijo.
 class AddGastoSheet extends StatefulWidget {
   final Gasto? gasto;
-  const AddGastoSheet({super.key, this.gasto});
+  final DateTime selectedMonth;
+
+  const AddGastoSheet({super.key, this.gasto, required this.selectedMonth});
 
   @override
   State<AddGastoSheet> createState() => _AddGastoSheetState();
 }
 
 class _AddGastoSheetState extends State<AddGastoSheet> {
-  final _formKey = GlobalKey<FormState>(); // Clave para la validación del formulario
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _descripcionController = TextEditingController();
   final TextEditingController _montoController = TextEditingController();
   final TextEditingController _fechaController = TextEditingController();
+  final TextEditingController _fechaInicioController = TextEditingController();
+  final TextEditingController _fechaFinController = TextEditingController();
 
-  Categoria? _selectedCategoria; // Categoría seleccionada
-  bool _esFijo = false; // Indica si es un gasto fijo
-  DateTime _selectedDate = DateTime.now(); // Fecha seleccionada, por defecto hoy
+  Categoria? _selectedCategoria;
+  bool _esFijo = false;
+  DateTime _selectedDate = DateTime.now();
+  DateTime? _selectedFechaInicio;
+  DateTime? _selectedFechaFin;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+
     if (widget.gasto != null) {
       _descripcionController.text = widget.gasto!.descripcion;
-      // Formatear el monto inicial con separadores de miles
       final NumberFormat formatter = NumberFormat.decimalPattern('es_CL');
       _montoController.text = formatter.format(widget.gasto!.monto.toInt());
       _selectedDate = widget.gasto!.fecha;
       _esFijo = widget.gasto!.esFijo;
-      // Nota: _selectedCategoria se inicializará en el StreamBuilder
-      // o podríamos buscarlo aquí si tuviéramos acceso al repositorio.
+      _selectedFechaInicio = widget.gasto!.fechaInicio;
+      _selectedFechaFin = widget.gasto!.fechaFin;
+
+      if (_selectedFechaInicio != null) {
+        _fechaInicioController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaInicio!);
+      }
+      if (_selectedFechaFin != null) {
+        _fechaFinController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaFin!);
+      }
+    } else {
+      // 3. Sincronización de Fecha (UX)
+      if (widget.selectedMonth.year == now.year && widget.selectedMonth.month == now.month) {
+        _selectedDate = now;
+      } else {
+        _selectedDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
+      }
     }
+    
     _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
   }
 
-  /// Muestra un DatePicker para seleccionar la fecha del gasto.
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -63,6 +83,165 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
         _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
       });
     }
+  }
+
+  Future<void> _saveGasto() async {
+    if (_formKey.currentState!.validate()) {
+      if (_selectedCategoria == null) {
+        _showSnackBar('Debe seleccionar una categoría.', Colors.red);
+        return;
+      }
+
+      final cleanMonto = _montoController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final double? monto = double.tryParse(cleanMonto);
+      
+      if (monto == null || monto <= 0) {
+        _showSnackBar('El monto debe ser un número positivo.', Colors.red);
+        return;
+      }
+
+      final newGasto = Gasto(
+        id: widget.gasto?.id ?? 0,
+        descripcion: _descripcionController.text,
+        monto: monto,
+        fecha: _selectedDate,
+        activo: true,
+        idCategoria: _selectedCategoria!.id,
+        esFijo: _esFijo,
+        fechaInicio: _selectedFechaInicio,
+        fechaFin: _selectedFechaFin,
+      );
+
+      try {
+        if (widget.gasto == null) {
+          context.read<GastoBloc>().add(AddGasto(newGasto));
+          
+          // Lógica de Primer Registro (SharedPreferences)
+          final prefs = await SharedPreferences.getInstance();
+          final bool firstRecordDone = prefs.getBool('first_record_done') ?? false;
+          
+          if (!firstRecordDone) {
+            await prefs.setBool('first_record_done', true);
+            if (mounted) {
+              Navigator.pop(context); // Cerrar formulario
+              _showReminderDialog(context);
+              return;
+            }
+          }
+        } else {
+          context.read<GastoBloc>().add(UpdateGasto(newGasto));
+        }
+        
+        if (mounted) {
+          _showSnackBar('Registro guardado exitosamente.', Colors.green);
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        _showSnackBar('Error: $e', Colors.red);
+      }
+    }
+  }
+
+  void _showReminderDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Recordatorios diarios?'),
+        content: const Text('¿Quieres activar avisos para no olvidar registrar tus gastos? Puedes configurar los días y la hora más tarde.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('LUEGO'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('notifications_enabled', true);
+              if (context.mounted) {
+                Navigator.pop(context);
+                _showSnackBar('Notificaciones activadas. Ve a Ajustes para personalizarlas.', Colors.blue);
+              }
+            },
+            child: const Text('ACTIVAR'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+  }
+
+  @override
+  void dispose() {
+    _descripcionController.dispose();
+    _montoController.dispose();
+    _fechaController.dispose();
+    _fechaInicioController.dispose();
+    _fechaFinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16.0, right: 16.0, top: 16.0,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.gasto == null ? 'Nuevo Registro' : 'Editar Registro',
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _descripcionController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder(), prefixIcon: Icon(Icons.description)),
+                validator: (v) => (v == null || v.isEmpty) ? 'Ingrese una descripción' : null,
+              ),
+              const SizedBox(height: 15),
+              TextFormField(
+                controller: _montoController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, ThousandsSeparatorInputFormatter()],
+                decoration: const InputDecoration(labelText: 'Monto', border: OutlineInputBorder(), prefixIcon: Icon(Icons.attach_money)),
+                validator: (v) => (v == null || v.isEmpty) ? 'Ingrese un monto' : null,
+              ),
+              const SizedBox(height: 15),
+              const Text('Categoría', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              _buildCategoriasSelector(),
+              const SizedBox(height: 15),
+              TextFormField(
+                controller: _fechaController,
+                readOnly: true,
+                onTap: () => _selectDate(context),
+                decoration: const InputDecoration(labelText: 'Fecha', border: OutlineInputBorder(), prefixIcon: Icon(Icons.calendar_today)),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _saveGasto,
+                icon: const Icon(Icons.save),
+                label: const Text('Guardar Registro'),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Muestra un diálogo para crear una nueva categoría.
@@ -81,6 +260,7 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
       Colors.pink,
       Colors.amber,
       Colors.indigo,
+      const Color(0xFF00BFFF), // Celeste Ahorro
     ];
     
     await showDialog(
@@ -107,7 +287,7 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                   children: [
                     Expanded(
                       child: RadioListTile<TipoCategoria>(
-                        title: const Text('Gasto', style: TextStyle(fontSize: 12)),
+                        title: const Text('Gasto', style: TextStyle(fontSize: 10)),
                         value: TipoCategoria.gasto,
                         groupValue: selectedTipo,
                         contentPadding: EdgeInsets.zero,
@@ -116,8 +296,17 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                     ),
                     Expanded(
                       child: RadioListTile<TipoCategoria>(
-                        title: const Text('Ingreso', style: TextStyle(fontSize: 12)),
+                        title: const Text('Ingreso', style: TextStyle(fontSize: 10)),
                         value: TipoCategoria.ingreso,
+                        groupValue: selectedTipo,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<TipoCategoria>(
+                        title: const Text('Ahorro', style: TextStyle(fontSize: 10)),
+                        value: TipoCategoria.ahorro,
                         groupValue: selectedTipo,
                         contentPadding: EdgeInsets.zero,
                         onChanged: (value) => setDialogState(() => selectedTipo = value!),
@@ -174,8 +363,13 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                   );
                   
                   try {
-                    await context.read<CategoriaRepository>().insertCategoria(newCategoria);
-                    if (mounted) Navigator.pop(context);
+                    final newId = await context.read<CategoriaRepository>().insertCategoria(newCategoria);
+                    if (mounted) {
+                      setState(() {
+                        _selectedCategoria = newCategoria.copyWith(id: newId);
+                      });
+                      Navigator.pop(context);
+                    }
                   } catch (e) {
                     _showSnackBar('Error al crear categoría: $e', Colors.red);
                   }
@@ -189,408 +383,82 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
     );
   }
 
-  /// Muestra un diálogo de confirmación para eliminar la categoría seleccionada.
-  Future<void> _confirmDeleteCategoria(Categoria categoria) async {
-    final gastoRepo = context.read<GastoRepository>();
-    final catRepo = context.read<CategoriaRepository>();
-    
-    // 1. Verificar si hay gastos asociados
-    final gastosAsociados = await gastoRepo.getGastosByCategoria(categoria.id);
-    
-    if (gastosAsociados.isNotEmpty) {
-      if (mounted) {
-        _showSnackBar('No se puede eliminar una categoría con gastos asociados.', Colors.orange);
-      }
-      return;
-    }
-
-    // 2. Si está vacía, pedir confirmación
-    if (!mounted) return;
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Eliminar Categoría'),
-          content: Text('¿Estás seguro de que deseas eliminar la categoría "${categoria.descripcion}"?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('CANCELAR'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('ELIMINAR', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed == true && mounted) {
-      try {
-        await catRepo.deleteCategoria(categoria.id);
-        
-        // Resetear selección si se eliminó la categoría actual
-        if (_selectedCategoria?.id == categoria.id) {
-          setState(() {
-            _selectedCategoria = null; // El StreamBuilder seleccionará el siguiente disponible
-          });
+  Widget _buildCategoriasSelector() {
+    return StreamBuilder<List<Categoria>>(
+      stream: context.read<CategoriaRepository>().watchAllCategorias(),
+      builder: (context, snapshot) {
+        final categoriasRaw = snapshot.data ?? [];
+        if (categoriasRaw.isEmpty && snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
-        
-        _showSnackBar('Categoría eliminada exitosamente.', Colors.green);
-      } catch (e) {
-        _showSnackBar('Error al eliminar categoría: $e', Colors.red);
-      }
-    }
-  }
 
-  /// Muestra un diálogo de confirmación para eliminar el registro.
-  Future<void> _confirmDeleteGasto() async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmar eliminación'),
-          content: Text('¿Estás seguro de que deseas eliminar el registro "${widget.gasto!.descripcion}"?'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('CANCELAR'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('ELIMINAR', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
+        // Ordenar categorías: 1. Sueldo, 2. Crédito, 3. Ahorro, luego alfabéticamente
+        final categorias = List<Categoria>.from(categoriasRaw);
+        categorias.sort((a, b) {
+          int getPriority(String desc) {
+            final d = desc.toLowerCase();
+            if (d == 'sueldo') return 0;
+            if (d == 'crédito' || d == 'credito') return 1;
+            if (d == 'ahorro') return 2;
+            return 3;
+          }
+          final pA = getPriority(a.descripcion);
+          final pB = getPriority(b.descripcion);
+          if (pA != pB) return pA.compareTo(pB);
+          return a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase());
+        });
 
-    if (confirmed == true && mounted) {
-      context.read<GastoBloc>().add(DeleteGasto(widget.gasto!.id));
-      _showSnackBar('Registro eliminado exitosamente.', Colors.green);
-      Navigator.pop(context); // Cierra el bottom sheet
-    }
-  }
-
-  /// Guarda el gasto actual.
-  ///
-  /// Realiza la validación del formulario y, si es exitosa, construye
-  /// un objeto [Gasto] y lo envía al [GastoBloc] a través del evento [AddGasto].
-  /// Muestra un [SnackBar] con el resultado de la operación.
-  Future<void> _saveGasto() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-
-      if (_selectedCategoria == null) {
-        _showSnackBar('Debe seleccionar una categoría.', Colors.red);
-        return;
-      }
-
-      // Quitar separadores de miles para obtener el valor numérico
-      final cleanMonto = _montoController.text.replaceAll(RegExp(r'[^0-9]'), '');
-      final double? monto = double.tryParse(cleanMonto);
-      
-      if (monto == null || monto <= 0) {
-        _showSnackBar('El monto debe ser un número positivo.', Colors.red);
-        return;
-      }
-
-      final newGasto = Gasto(
-        id: widget.gasto?.id ?? 0, // Conservar ID si se edita, 0 para nuevo
-        descripcion: _descripcionController.text,
-        monto: monto,
-        fecha: _selectedDate,
-        activo: true,
-        idCategoria: _selectedCategoria!.id,
-        esFijo: _esFijo,
-      );
-
-      try {
-        if (widget.gasto == null) {
-          context.read<GastoBloc>().add(AddGasto(newGasto));
-        } else {
-          context.read<GastoBloc>().add(UpdateGasto(newGasto));
+        if (_selectedCategoria == null && categorias.isNotEmpty) {
+          _selectedCategoria = widget.gasto != null 
+            ? categorias.firstWhere((c) => c.id == widget.gasto!.idCategoria, orElse: () => categorias.first)
+            : categorias.first;
         }
-        _showSnackBar('Registro "${newGasto.descripcion}" guardado exitosamente.', Colors.green);
-        Navigator.pop(context);
-      } catch (e) {
-        _showSnackBar('Error al guardar registro: $e', Colors.red);
-      }
-    }
-  }
 
-  /// Muestra un [SnackBar] con un mensaje y color específicos.
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-      ),
-    );
-  }
+        return SizedBox(
+          height: 50,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: categorias.length + 1,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              if (index == categorias.length) {
+                return ActionChip(
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: const Text('Nueva'),
+                  onPressed: _showCreateCategoriaDialog,
+                );
+              }
 
-  @override
-  void dispose() {
-    _descripcionController.dispose();
-    _montoController.dispose();
-    _fechaController.dispose();
-    super.dispose();
-  }
+              final cat = categorias[index];
+              final isSelected = _selectedCategoria?.id == cat.id;
+              final color = Color(cat.colorValue);
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16.0,
-          right: 16.0,
-          top: 16.0,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Text(
-                    widget.gasto == null ? 'Nuevo Registro' : 'Editar Registro',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  if (widget.gasto != null)
-                    Positioned(
-                      right: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        onPressed: _confirmDeleteGasto,
-                        tooltip: 'Eliminar Registro',
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              /// Campo de texto para la descripción del gasto.
-              TextFormField(
-                controller: _descripcionController,
-                decoration: const InputDecoration(
-                  labelText: 'Descripción',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.description),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor, ingrese una descripción';
-                  }
-                  return null;
+              return ChoiceChip(
+                label: Text(cat.descripcion),
+                selected: isSelected,
+                selectedColor: color.withOpacity(0.3),
+                side: isSelected ? BorderSide(color: color, width: 2) : null,
+                onSelected: (selected) {
+                  if (selected) setState(() => _selectedCategoria = cat);
                 },
-              ),
-              const SizedBox(height: 15),
-
-              /// Campo numérico para el monto del gasto.
-              TextFormField(
-                controller: _montoController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  ThousandsSeparatorInputFormatter(),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Monto',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor, ingrese un monto';
-                  }
-                  // Quitar separadores de miles para validar
-                  final cleanValue = value.replaceAll(RegExp(r'[^0-9]'), '');
-                  if (double.tryParse(cleanValue) == null || double.parse(cleanValue) <= 0) {
-                    return 'Ingrese un monto válido (mayor que 0)';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 15),
-
-              /// Selector de Categoría (usando StreamBuilder y Chips).
-              const Text('Categoría', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              StreamBuilder<List<Categoria>>(
-                stream: context.read<CategoriaRepository>().watchAllCategorias(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final categorias = snapshot.data ?? [];
-
-                  if (categorias.isEmpty) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'No hay categorías disponibles.',
-                            style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: _showCreateCategoriaDialog,
-                          icon: const Icon(Icons.add_circle_outline),
-                          label: const Text('Crear Categoría'),
-                        ),
-                      ],
-                    );
-                  }
-
-                  // Si no hay nada seleccionado, seleccionar el primero por defecto o el del gasto si estamos editando.
-                  // También se actualiza si la categoría seleccionada ya no existe.
-                  if (_selectedCategoria == null || !categorias.any((c) => c.id == _selectedCategoria!.id)) {
-                    if (widget.gasto != null && _selectedCategoria == null) {
-                      _selectedCategoria = categorias.firstWhere(
-                        (c) => c.id == widget.gasto!.idCategoria,
-                        orElse: () => categorias.first,
-                      );
-                    } else {
-                      _selectedCategoria = categorias.first;
-                    }
-                    // Se usa postFrameCallback para evitar errores de setState durante el build.
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() {});
-                    });
-                  }
-
-                  return SizedBox(
-                    height: 50,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categorias.length + 1,
-                      separatorBuilder: (context, index) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        if (index == categorias.length) {
-                          return ActionChip(
-                            avatar: const Icon(Icons.add, size: 18),
-                            label: const Text('Nueva'),
-                            onPressed: _showCreateCategoriaDialog,
-                          );
-                        }
-
-                        final categoria = categorias[index];
-                        final isSelected = _selectedCategoria?.id == categoria.id;
-                        final color = Color(categoria.colorValue);
-
-                        return GestureDetector(
-                          onLongPress: () => _confirmDeleteCategoria(categoria),
-                          child: ChoiceChip(
-                            label: Text(categoria.descripcion),
-                            selected: isSelected,
-                            selectedColor: color.withOpacity(0.3),
-                            side: isSelected ? BorderSide(color: color, width: 2) : null,
-                            avatar: CircleAvatar(
-                              backgroundColor: color,
-                              radius: 8,
-                            ),
-                            onSelected: (selected) {
-                              if (selected) {
-                                setState(() {
-                                  _selectedCategoria = categoria;
-                                });
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 15),
-
-              /// Selector de Fecha.
-              TextFormField(
-                controller: _fechaController,
-                readOnly: true,
-                onTap: () => _selectDate(context),
-                decoration: const InputDecoration(
-                  labelText: 'Fecha',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              /// Switch para Gasto Fijo.
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Es Gasto Fijo', style: Theme.of(context).textTheme.titleMedium),
-                  Switch(
-                    value: _esFijo,
-                    onChanged: (value) {
-                      setState(() {
-                        _esFijo = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              /// Botón para guardar el gasto.
-              ElevatedButton.icon(
-                onPressed: _saveGasto,
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar Registro'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
+              );
+            },
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-/// Formateador para añadir separadores de miles en tiempo real.
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   final NumberFormat _formatter = NumberFormat.decimalPattern('es_CL');
-
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.isEmpty) {
-      return newValue.copyWith(text: '');
-    }
-
-    // Eliminar cualquier carácter que no sea dígito
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) return newValue.copyWith(text: '');
     String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    
-    // Formatear el número
     int? value = int.tryParse(newText);
-    if (value == null) return oldValue;
-    
-    String formattedText = _formatter.format(value);
-
-    // Mantener la posición del cursor de forma coherente
-    int cursorPosition = formattedText.length - (newValue.text.length - newValue.selection.end);
-    if (cursorPosition < 0) cursorPosition = 0;
-    if (cursorPosition > formattedText.length) cursorPosition = formattedText.length;
-
-    return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: cursorPosition),
-    );
+    if (value == null) return old;
+    String formatted = _formatter.format(value);
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
   }
 }
