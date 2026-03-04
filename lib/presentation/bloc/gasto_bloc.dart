@@ -156,30 +156,36 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
     }
   }
 
-  /// Calcula el monto total, total de ingresos, total de gastos y ahorros.
+  /// Calcula el monto total (saldo restante), total de ingresos, total de gastos y ahorros.
   ///
-  /// El total se calcula como: Ingresos - Gastos - Ahorros.
+  /// Siguiendo la lógica financiera:
+  /// Saldo (Disponible) = Total Ingresos - Total Gastos - Total Ahorros.
   _Totals _calculateTotals(List<Gasto> gastos, Map<int, Categoria> categoriasMap) {
-    double total = 0.0;
-    double income = 0.0;
-    double expense = 0.0;
-    double savings = 0.0;
+    double incomeTotal = 0.0;
+    double expenseTotal = 0.0;
+    double savingsTotal = 0.0;
 
     for (var gasto in gastos) {
       final categoria = categoriasMap[gasto.idCategoria];
       if (categoria != null) {
-        if (categoria.tipo == TipoCategoria.ingreso) {
-          income += gasto.monto;
-        } else if (categoria.tipo == TipoCategoria.ahorro) {
-          savings += gasto.monto;
-        } else {
-          // GASTO y OCIO se consideran gastos para el balance general
-          expense += gasto.monto;
+        switch (categoria.tipo) {
+          case TipoCategoria.ingreso:
+            incomeTotal += gasto.monto;
+            break;
+          case TipoCategoria.ahorro:
+            savingsTotal += gasto.monto;
+            break;
+          case TipoCategoria.gasto:
+          case TipoCategoria.ocio:
+            expenseTotal += gasto.monto;
+            break;
         }
       }
     }
-    // Balance total: lo que entra menos lo que sale (gastos) y lo que se reserva (ahorro)
-    total = income - expense - savings;
-    return _Totals(total, income, expense, savings);
+
+    // Saldo (Disponible) es lo que sobra después de gastos y ahorros.
+    final double saldoRestante = incomeTotal - expenseTotal - savingsTotal;
+    
+    return _Totals(saldoRestante, incomeTotal, expenseTotal, savingsTotal);
   }
 }

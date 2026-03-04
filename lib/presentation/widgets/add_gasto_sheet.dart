@@ -491,7 +491,25 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final categorias = snapshot.data ?? [];
+                  final categoriasRaw = snapshot.data ?? [];
+                  
+                  // Ordenar categorías: 1. Sueldo, 2. Crédito, 3. Ahorro, luego alfabéticamente
+                  final categorias = List<Categoria>.from(categoriasRaw);
+                  categorias.sort((a, b) {
+                    int getPriority(String desc) {
+                      final d = desc.toLowerCase();
+                      if (d == 'sueldo') return 0;
+                      if (d == 'crédito' || d == 'credito') return 1;
+                      if (d == 'ahorro') return 2;
+                      return 3;
+                    }
+
+                    final pA = getPriority(a.descripcion);
+                    final pB = getPriority(b.descripcion);
+
+                    if (pA != pB) return pA.compareTo(pB);
+                    return a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase());
+                  });
 
                   if (categorias.isEmpty) {
                     return Row(

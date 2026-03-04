@@ -37,8 +37,8 @@ class HomePage extends StatelessWidget {
               NumberFormat.decimalPattern('es_CL');
           final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
 
-          // Calcula el saldo total para mostrar en el SliverAppBar
-          final double balanceTotal = state.incomeTotal - state.expenseTotal;
+          // Utiliza el saldo total calculado en el BLoC (Ingresos - Gastos - Ahorros)
+          final double balanceTotal = state.totalMes;
 
           // Función auxiliar para formatear montos con signo y símbolo al inicio
           String formatAmount(double amount, TipoCategoria? tipo) {
@@ -91,7 +91,7 @@ class HomePage extends StatelessWidget {
                               ),
                         ),
                         Text(
-                          '${balanceTotal >= 0 ? '\$ +' : '\$ -'}${currencyFormat.format(balanceTotal.abs())}',
+                          '${balanceTotal >= 0 ? '\$ ' : '-\$ '}${currencyFormat.format(balanceTotal.abs())}',
                           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                                 color: Theme.of(context).colorScheme.onPrimary,
                                 fontWeight: FontWeight.bold,
@@ -128,7 +128,7 @@ class HomePage extends StatelessWidget {
                             children: [
                               const Text('Ingresos:'),
                               Text(
-                                '\$ +${currencyFormat.format(state.incomeTotal)}',
+                                '+\$ ${currencyFormat.format(state.incomeTotal)}',
                                 style: TextStyle(
                                   color: Colors.green.shade700,
                                   fontWeight: FontWeight.bold,
@@ -142,7 +142,7 @@ class HomePage extends StatelessWidget {
                             children: [
                               const Text('Gastos:'),
                               Text(
-                                '\$ -${currencyFormat.format(state.expenseTotal)}',
+                                '-\$ ${currencyFormat.format(state.expenseTotal)}',
                                 style: TextStyle(
                                   color: Colors.red.shade700,
                                   fontWeight: FontWeight.bold,
@@ -167,7 +167,11 @@ class HomePage extends StatelessWidget {
                     // Determina el color del monto según el color de su categoría en la DB
                     Color montoColor = Theme.of(context).colorScheme.onSurface;
                     if (categoria != null) {
-                      montoColor = Color(categoria.colorValue);
+                      if (categoria.tipo == TipoCategoria.ahorro) {
+                        montoColor = const Color(0xFF00BFFF);
+                      } else {
+                        montoColor = Color(categoria.colorValue);
+                      }
                     }
 
                     return Dismissible(

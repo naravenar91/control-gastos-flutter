@@ -19,7 +19,7 @@ class _ChartsPageState extends State<ChartsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.decimalPattern('es_CL');
+    final currencyFormat = NumberFormat.currency(locale: 'es_CL', symbol: '\$', decimalDigits: 0);
 
     return Scaffold(
       appBar: AppBar(
@@ -34,17 +34,16 @@ class _ChartsPageState extends State<ChartsPage> {
             final double income = state.incomeTotal;
             final double expense = state.expenseTotal;
             final double savings = state.savingsTotal;
+            final double balance = state.totalMes; // Este es el saldo restante (income - expense - savings)
             
-            // El total transaccionado para el gráfico es la suma absoluta de todo lo que se movió
-            final double grandTotal = income + expense + savings;
+            // Base del cálculo: El ingreso total
+            final double baseTotal = income;
 
-            if (grandTotal == 0) {
+            if (baseTotal <= 0 && expense == 0 && savings == 0) {
               return const Center(child: Text('No hay datos suficientes para mostrar gráficos'));
             }
 
-            final double incomePercent = (income / grandTotal) * 100;
-            final double expensePercent = (expense / grandTotal) * 100;
-            final double savingsPercent = (savings / grandTotal) * 100;
+            final bool isOverspent = balance < 0;
 
             // Filtrar listas para el detalle
             final ingresosList = state.gastos
@@ -65,19 +64,21 @@ class _ChartsPageState extends State<ChartsPage> {
                 child: Column(
                   children: [
                     const Text(
-                      'Distribución de Capital',
+                      'Distribución del Ingreso',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Total Transaccionado: \$ ${currencyFormat.format(grandTotal)}',
+                      'Total Ingresos: \$ ${currencyFormat.format(income)}',
                       style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 10),
                     // PieChart con altura fija para scroll
                     SizedBox(
                       height: 250,
-                      child: PieChart(
+                      child: isOverspent 
+                        ? _buildOverspentAlert(expense + savings, income, currencyFormat)
+                        : PieChart(
                         PieChartData(
                           pieTouchData: PieTouchData(
                             touchCallback: (FlTouchEvent event, pieTouchResponse) {
@@ -95,38 +96,13 @@ class _ChartsPageState extends State<ChartsPage> {
                           borderData: FlBorderData(show: false),
                           sectionsSpace: 2,
                           centerSpaceRadius: 40,
-                          sections: [
-                            if (income > 0)
-                              _buildSection(
-                                index: 0,
-                                value: income,
-                                percentage: incomePercent,
-                                title: 'Ingresos',
-                                color: Colors.green,
-                                amount: income,
-                                currencyFormat: currencyFormat,
-                              ),
-                            if (expense > 0)
-                              _buildSection(
-                                index: 1,
-                                value: expense,
-                                percentage: expensePercent,
-                                title: 'Gastos',
-                                color: Colors.red,
-                                amount: expense,
-                                currencyFormat: currencyFormat,
-                              ),
-                            if (savings > 0)
-                              _buildSection(
-                                index: 2,
-                                value: savings,
-                                percentage: savingsPercent,
-                                title: 'Ahorros',
-                                color: Colors.lightBlueAccent,
-                                amount: savings,
-                                currencyFormat: currencyFormat,
-                              ),
-                          ],
+                          sections: _buildSections(
+                            income: income,
+                            expense: expense,
+                            savings: savings,
+                            balance: balance,
+                            currencyFormat: currencyFormat,
+                          ),
                         ),
                       ),
                     ),
@@ -192,11 +168,11 @@ class _ChartsPageState extends State<ChartsPage> {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.lightBlue.shade700,
+                                  color: const Color(0xFF00BFFF),
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              ...ahorrosList.map((g) => _buildDetailItem(g, Colors.lightBlue.shade700, currencyFormat, textColor: Colors.black)),
+                              ...ahorrosList.map((g) => _buildDetailItem(g, const Color(0xFF00BFFF), currencyFormat, textColor: Colors.black)),
                               if (ahorrosList.isEmpty)
                                 const Text('Sin datos', style: TextStyle(fontSize: 9, color: Colors.grey)),
                             ],
@@ -214,6 +190,97 @@ class _ChartsPageState extends State<ChartsPage> {
         },
       ),
     );
+  }
+
+  Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 60),
+        const SizedBox(height: 10),
+        const Text(
+          '¡Gasto Excedido!',
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        Text(
+          'Los egresos (\$${format.format(totalSpent)}) superan a los ingresos (\$${format.format(income)})',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 100,
+          width: 100,
+          child: PieChart(
+            PieChartData(
+              sections: [
+                PieChartSectionData(
+                  color: Colors.red,
+                  value: 100,
+                  title: '100%',
+                  radius: 40,
+                  titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<PieChartSectionData> _buildSections({
+    required double income,
+    required double expense,
+    required double savings,
+    required double balance,
+    required NumberFormat currencyFormat,
+  }) {
+    final List<PieChartSectionData> sections = [];
+    int currentIndex = 0;
+    
+    if (income <= 0) return sections;
+
+    // Gastos
+    if (expense > 0) {
+      sections.add(_buildSection(
+        index: currentIndex++,
+        value: expense,
+        percentage: (expense / income) * 100,
+        title: 'Gastos',
+        color: Colors.red,
+        amount: expense,
+        currencyFormat: currencyFormat,
+      ));
+    }
+
+    // Ahorros
+    if (savings > 0) {
+      sections.add(_buildSection(
+        index: currentIndex++,
+        value: savings,
+        percentage: (savings / income) * 100,
+        title: 'Ahorros',
+        color: const Color(0xFF00BFFF),
+        amount: savings,
+        currencyFormat: currencyFormat,
+      ));
+    }
+
+    // Saldo (Disponible)
+    if (balance > 0) {
+      sections.add(_buildSection(
+        index: currentIndex++,
+        value: balance,
+        percentage: (balance / income) * 100,
+        title: 'Saldo',
+        color: Colors.green,
+        amount: balance,
+        currencyFormat: currencyFormat,
+      ));
+    }
+
+    return sections;
   }
 
   Widget _buildDetailItem(Gasto gasto, Color color, NumberFormat format, {Color? textColor}) {
@@ -272,9 +339,9 @@ class _ChartsPageState extends State<ChartsPage> {
       spacing: 15,
       runSpacing: 10,
       children: [
-        _legendItem('Ingresos', Colors.green),
+        _legendItem('Saldo', Colors.green),
         _legendItem('Gastos', Colors.red),
-        _legendItem('Ahorros', Colors.lightBlueAccent),
+        _legendItem('Ahorros', const Color(0xFF00BFFF)),
       ],
     );
   }
