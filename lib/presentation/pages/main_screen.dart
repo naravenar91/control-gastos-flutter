@@ -4,6 +4,7 @@ import 'home_page.dart';
 import 'charts_page.dart';
 import 'export_page.dart';
 import 'categorias_page.dart';
+import 'settings_page.dart';
 import '../widgets/add_gasto_sheet.dart';
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_state.dart';
@@ -24,6 +25,7 @@ class _MainScreenState extends State<MainScreen> {
     const ChartsPage(),
     const CategoriasPage(),
     const ExportPage(),
+    const SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
@@ -74,6 +76,10 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.file_upload),
             label: 'Exportar',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Ajustes',
           ),
         ],
       ),

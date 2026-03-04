@@ -15,11 +15,16 @@ import 'presentation/bloc/theme_cubit.dart';
 import 'presentation/pages/main_screen.dart';
 import 'presentation/pages/splash_page.dart';
 import 'presentation/theme_provider.dart';
+import 'infrastructure/notification_service.dart';
 
 /// Punto de entrada principal de la aplicación Flutter.
-void main() {
+void main() async {
   // Asegura que los bindings de Flutter estén inicializados antes de usar plugins.
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar servicio de notificaciones
+  await NotificationService().init();
+  await NotificationService().requestPermissions();
 
   // Instancia la base de datos de la aplicación.
   // Esta instancia será inyectada en los repositorios.
