@@ -136,12 +136,12 @@ class AppDatabase extends _$AppDatabase {
                 descripcion: 'Ahorro',
                 colorValue: 0xFF2196F3, // Azul
                 tipo: domain_tipo_categoria.TipoCategoria.ahorro.index,
-              ),
+              )/*,
               CategoriasCompanion.insert(
                 descripcion: 'Comida',
                 colorValue: 0xFFFF9800, // Naranja para comida
                 tipo: domain_tipo_categoria.TipoCategoria.gasto.index,
-              )
+              )*/
             ]);
           });
         },

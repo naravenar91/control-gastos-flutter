@@ -84,6 +84,13 @@ class DriftCategoriaRepository implements CategoriaRepository {
   }
 
   @override
+  Future<void> updateCategoria(Categoria categoria) async {
+    // Actualiza una categoría existente en la tabla 'categorias'.
+    // Utiliza el método 'replace' que busca por la clave primaria (ID).
+    await _db.update(_db.categorias).replace(toCategoriasCompanion(categoria));
+  }
+
+  @override
   Future<bool> canDeleteCategoria(int id) async {
     // Verifica si hay gastos asociados a esta categoría.
     final countExp = _db.selectOnly(_db.gastos)..addColumns([_db.gastos.id.count()]);

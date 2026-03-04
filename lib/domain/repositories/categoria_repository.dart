@@ -29,6 +29,11 @@ abstract class CategoriaRepository {
   /// Retorna un `Future` que se resolverá con el ID de la categoría insertada.
   Future<int> insertCategoria(Categoria categoria);
 
+  /// Actualiza una categoría existente en el repositorio.
+  ///
+  /// [categoria]: El objeto [Categoria] con los datos actualizados.
+  Future<void> updateCategoria(Categoria categoria);
+
   /// Verifica si una categoría puede ser eliminada (si no tiene gastos asociados).
   Future<bool> canDeleteCategoria(int id);
 
