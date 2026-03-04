@@ -24,6 +24,12 @@ class Gasto {
   /// Indica si el gasto es de tipo fijo (ej. alquiler, suscripciones).
   final bool esFijo;
 
+  /// Fecha de inicio para gastos fijos recurrentes.
+  final DateTime? fechaInicio;
+
+  /// Fecha de fin para gastos fijos recurrentes (ej. fin de cuotas).
+  final DateTime? fechaFin;
+
   /// Constructor de la clase [Gasto].
   ///
   /// Todos los parámetros son requeridos y se usan para inicializar
@@ -36,6 +42,8 @@ class Gasto {
     required this.activo,
     required this.idCategoria,
     required this.esFijo,
+    this.fechaInicio,
+    this.fechaFin,
   });
 
   /// Crea una nueva instancia de [Gasto] con valores posiblemente modificados.
@@ -49,6 +57,8 @@ class Gasto {
     bool? activo,
     int? idCategoria,
     bool? esFijo,
+    DateTime? fechaInicio,
+    DateTime? fechaFin,
   }) {
     return Gasto(
       id: id ?? this.id,
@@ -58,6 +68,8 @@ class Gasto {
       activo: activo ?? this.activo,
       idCategoria: idCategoria ?? this.idCategoria,
       esFijo: esFijo ?? this.esFijo,
+      fechaInicio: fechaInicio ?? this.fechaInicio,
+      fechaFin: fechaFin ?? this.fechaFin,
     );
   }
 
@@ -74,6 +86,8 @@ class Gasto {
       activo: json['activo'] as bool,
       idCategoria: json['idCategoria'] as int,
       esFijo: json['esFijo'] as bool,
+      fechaInicio: json['fechaInicio'] != null ? DateTime.parse(json['fechaInicio'] as String) : null,
+      fechaFin: json['fechaFin'] != null ? DateTime.parse(json['fechaFin'] as String) : null,
     );
   }
 
@@ -90,6 +104,8 @@ class Gasto {
       'activo': activo,
       'idCategoria': idCategoria,
       'esFijo': esFijo,
+      'fechaInicio': fechaInicio?.toIso8601String(),
+      'fechaFin': fechaFin?.toIso8601String(),
     };
   }
 }

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../domain/models/categoria.dart';
+import '../../domain/models/tipo_categoria.dart';
 import '../../domain/repositories/categoria_repository.dart';
 import '../app_database.dart'; // Asegúrate de que esta ruta sea correcta
 
@@ -17,18 +18,49 @@ class DriftCategoriaRepository implements CategoriaRepository {
 
   @override
   Future<List<Categoria>> getAllCategorias() async {
-    // Realiza una consulta para obtener todas las categorías de la tabla 'categorias'.
-    // Luego, mapea cada 'CategoriaEntry' (generado por Drift) a un modelo de dominio 'Categoria'.
     final categoriaEntries = await _db.select(_db.categorias).get();
-    return categoriaEntries.map((entry) => toDomainCategoria(entry)).toList();
+    final categorias = categoriaEntries.map((entry) => toDomainCategoria(entry)).toList();
+    return _sortCategorias(categorias);
   }
 
   @override
   Stream<List<Categoria>> watchAllCategorias() {
-    // Observa los cambios en la tabla 'categorias' y emite una nueva lista de dominio.
     return _db.select(_db.categorias).watch().map((entries) {
-      return entries.map((entry) => toDomainCategoria(entry)).toList();
+      final categorias = entries.map((entry) => toDomainCategoria(entry)).toList();
+      return _sortCategorias(categorias);
     });
+  }
+
+  /// Lógica de ordenamiento personalizada:
+  /// 1° Sueldo (o ingresos principales)
+  /// 2° Crédito (o gastos fijos)
+  /// 3° Ahorro
+  /// 4° Alfabético
+  List<Categoria> _sortCategorias(List<Categoria> lista) {
+    lista.sort((a, b) {
+      int getPriority(Categoria c) {
+        final desc = c.descripcion.toLowerCase();
+        // 1° Ingreso principal (Sueldo)
+        if (c.tipo == TipoCategoria.ingreso || desc.contains('sueldo')) return 1;
+        // 2° Gasto importante (Crédito)
+        if (desc.contains('crédito') || desc.contains('credito')) return 2;
+        // 3° Ahorro
+        if (c.tipo == TipoCategoria.ahorro) return 3;
+        // 4° El resto
+        return 4;
+      }
+
+      final pA = getPriority(a);
+      final pB = getPriority(b);
+
+      if (pA != pB) {
+        return pA.compareTo(pB);
+      }
+      
+      // Orden alfabético si tienen la misma prioridad
+      return a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase());
+    });
+    return lista;
   }
 
   @override
@@ -49,6 +81,13 @@ class DriftCategoriaRepository implements CategoriaRepository {
     // Inserta una nueva categoría en la tabla 'categorias'.
     // Convierte el objeto de dominio a un 'CategoriasCompanion' para Drift.
     return await _db.into(_db.categorias).insert(toCategoriasCompanion(categoria));
+  }
+
+  @override
+  Future<void> updateCategoria(Categoria categoria) async {
+    // Actualiza una categoría existente en la tabla 'categorias'.
+    // Utiliza el método 'replace' que busca por la clave primaria (ID).
+    await _db.update(_db.categorias).replace(toCategoriasCompanion(categoria));
   }
 
   @override
