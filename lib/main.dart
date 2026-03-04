@@ -22,9 +22,17 @@ void main() async {
   // Asegura que los bindings de Flutter estén inicializados antes de usar plugins.
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar servicio de notificaciones
-  await NotificationService().init();
-  await NotificationService().requestPermissions();
+  final notificationService = NotificationService(); // Instancia única
+
+  try {
+    print("***** Intentando inicializar notificaciones *****");
+    await notificationService.init();
+    await notificationService.requestPermissions();
+    print("***** Notificaciones listas *****");
+  } catch (e) {
+    // Si falla el icono, la app imprimirá el error pero NO se cerrará
+    debugPrint("ADVERTENCIA: Error al inicializar notificaciones (Icono no encontrado): $e");
+  }
 
   // Instancia la base de datos de la aplicación.
   // Esta instancia será inyectada en los repositorios.

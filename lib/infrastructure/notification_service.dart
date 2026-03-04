@@ -21,8 +21,10 @@ class NotificationService {
       // Si falla, se mantiene el comportamiento por defecto
     }
 
+    print("***** Notificacion arriba del launcher_icon *****");
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
+    AndroidInitializationSettings('launcher_icon');
+    print("***** Notificacion paso del launcher_icon *****");
 
     const DarwinInitializationSettings initializationSettingsDarwin =
     DarwinInitializationSettings(
