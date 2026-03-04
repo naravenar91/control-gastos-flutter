@@ -17,7 +17,9 @@ import '../bloc/gasto_event.dart';
 /// la categoría, la fecha y si es un gasto fijo.
 class AddGastoSheet extends StatefulWidget {
   final Gasto? gasto;
-  const AddGastoSheet({super.key, this.gasto});
+  final DateTime selectedMonth;
+
+  const AddGastoSheet({super.key, this.gasto, required this.selectedMonth});
 
   @override
   State<AddGastoSheet> createState() => _AddGastoSheetState();
@@ -33,13 +35,15 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
 
   Categoria? _selectedCategoria; // Categoría seleccionada
   bool _esFijo = false; // Indica si es un gasto fijo
-  DateTime _selectedDate = DateTime.now(); // Fecha seleccionada, por defecto hoy
+  DateTime _selectedDate = DateTime.now(); // Fecha seleccionada
   DateTime? _selectedFechaInicio;
   DateTime? _selectedFechaFin;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+
     if (widget.gasto != null) {
       _descripcionController.text = widget.gasto!.descripcion;
       // Formatear el monto inicial con separadores de miles
@@ -56,7 +60,17 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
       if (_selectedFechaFin != null) {
         _fechaFinController.text = DateFormat('dd/MM/yyyy').format(_selectedFechaFin!);
       }
+    } else {
+      // Lógica de Sincronización de Fecha para Nuevos Registros
+      // Si el mes visualizado es el actual, usar la fecha de hoy
+      if (widget.selectedMonth.year == now.year && widget.selectedMonth.month == now.month) {
+        _selectedDate = now;
+      } else {
+        // Si es un mes distinto (futuro o pasado), usar el día 1 de ese mes
+        _selectedDate = DateTime(widget.selectedMonth.year, widget.selectedMonth.month, 1);
+      }
     }
+    
     _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
   }
 
@@ -64,9 +78,10 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _selectedDate, // El calendario se abrirá en el mes correcto automáticamente
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {

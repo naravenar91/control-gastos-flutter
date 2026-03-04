@@ -3,9 +3,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../bloc/gasto_bloc.dart';
+import '../bloc/gasto_event.dart';
 import '../bloc/gasto_state.dart';
 import '../../domain/models/tipo_categoria.dart';
 import '../../domain/models/gasto.dart';
+import '../../domain/models/categoria.dart';
+
+enum ChartView { monthly, annual }
 
 class ChartsPage extends StatefulWidget {
   const ChartsPage({super.key});
@@ -16,6 +20,7 @@ class ChartsPage extends StatefulWidget {
 
 class _ChartsPageState extends State<ChartsPage> {
   int touchedIndex = -1;
+  ChartView _currentView = ChartView.monthly;
 
   @override
   Widget build(BuildContext context) {
@@ -31,155 +36,50 @@ class _ChartsPageState extends State<ChartsPage> {
           if (state is GastoLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is GastoLoaded) {
-            final double income = state.incomeTotal;
-            final double expense = state.expenseTotal;
-            final double savings = state.savingsTotal;
-            final double balance = state.totalMes; // Este es el saldo restante (income - expense - savings)
-            
-            // Base del cálculo: El ingreso total
-            final double baseTotal = income;
-
-            if (baseTotal <= 0 && expense == 0 && savings == 0) {
-              return const Center(child: Text('No hay datos suficientes para mostrar gráficos'));
+            if (_currentView == ChartView.annual && state.annualTotals.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                context.read<GastoBloc>().add(LoadAnnualData(state.selectedMonth.year));
+              });
             }
-
-            final bool isOverspent = balance < 0;
-
-            // Filtrar listas para el detalle
-            final ingresosList = state.gastos
-                .where((g) => state.categoriasMap[g.idCategoria]?.tipo == TipoCategoria.ingreso)
-                .toList();
-            final gastosList = state.gastos
-                .where((g) => 
-                    state.categoriasMap[g.idCategoria]?.tipo == TipoCategoria.gasto ||
-                    state.categoriasMap[g.idCategoria]?.tipo == TipoCategoria.ocio)
-                .toList();
-            final ahorrosList = state.gastos
-                .where((g) => state.categoriasMap[g.idCategoria]?.tipo == TipoCategoria.ahorro)
-                .toList();
 
             return SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Distribución del Ingreso',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'Total Ingresos: \$ ${currencyFormat.format(income)}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 10),
-                    // PieChart con altura fija para scroll
-                    SizedBox(
-                      height: 250,
-                      child: isOverspent 
-                        ? _buildOverspentAlert(expense + savings, income, currencyFormat)
-                        : PieChart(
-                        PieChartData(
-                          pieTouchData: PieTouchData(
-                            touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                              setState(() {
-                                if (!event.isInterestedForInteractions ||
-                                    pieTouchResponse == null ||
-                                    pieTouchResponse.touchedSection == null) {
-                                  touchedIndex = -1;
-                                  return;
-                                }
-                                touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                              });
-                            },
-                          ),
-                          borderData: FlBorderData(show: false),
-                          sectionsSpace: 2,
-                          centerSpaceRadius: 40,
-                          sections: _buildSections(
-                            income: income,
-                            expense: expense,
-                            savings: savings,
-                            balance: balance,
-                            currencyFormat: currencyFormat,
-                          ),
+                    // Selector de Vista con Padding
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 24.0),
+                        child: SegmentedButton<ChartView>(
+                          segments: const [
+                            ButtonSegment(
+                              value: ChartView.monthly,
+                              label: Text('Mensual (Dona)'),
+                              icon: Icon(Icons.pie_chart),
+                            ),
+                            ButtonSegment(
+                              value: ChartView.annual,
+                              label: Text('Anual (Barras)'),
+                              icon: Icon(Icons.bar_chart),
+                            ),
+                          ],
+                          selected: {_currentView},
+                          onSelectionChanged: (newSelection) {
+                            setState(() {
+                              _currentView = newSelection.first;
+                            });
+                          },
                         ),
                       ),
                     ),
-                    const SizedBox(height: 15),
-                    _buildLegend(),
-                    const SizedBox(height: 30),
-                    
-                    // Detalle de movimientos
-                    const Divider(),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Columna de Ingresos
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'INGRESOS',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              ...ingresosList.map((g) => _buildDetailItem(g, Colors.green.shade700, currencyFormat)),
-                              if (ingresosList.isEmpty)
-                                const Text('Sin datos', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // Columna de Gastos
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'GASTOS',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.red.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              ...gastosList.map((g) => _buildDetailItem(g, Colors.red.shade700, currencyFormat)),
-                              if (gastosList.isEmpty)
-                                const Text('Sin datos', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // Columna de Ahorros
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'AHORROS',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF00BFFF),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              ...ahorrosList.map((g) => _buildDetailItem(g, const Color(0xFF00BFFF), currencyFormat, textColor: Colors.black)),
-                              if (ahorrosList.isEmpty)
-                                const Text('Sin datos', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+
+                    if (_currentView == ChartView.monthly)
+                      _buildMonthlyView(state, currencyFormat)
+                    else
+                      _buildAnnualView(state, currencyFormat),
+
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -192,174 +92,363 @@ class _ChartsPageState extends State<ChartsPage> {
     );
   }
 
-  Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
+  Widget _buildMonthlyView(GastoLoaded state, NumberFormat currencyFormat) {
+    final double income = state.incomeTotal;
+    final double expense = state.expenseTotal;
+    final double savings = state.savingsTotal;
+    final double balance = state.totalMes;
+    
+    if (income <= 0 && expense == 0 && savings == 0) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.only(top: 50),
+          child: Text('No hay datos suficientes para mostrar gráficos', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    final bool isOverspent = balance < 0;
+
+    // Agrupar gastos por categoría
+    final Map<int, List<Gasto>> groupedByCat = {};
+    for (var g in state.gastos) {
+      groupedByCat.putIfAbsent(g.idCategoria, () => []).add(g);
+    }
+
+    // Calcular fontSize dinámico para el centro del gráfico
+    final String balanceText = '\$${currencyFormat.format(balance)}';
+    double balanceFontSize = 18;
+    if (balanceText.length > 10) balanceFontSize = 15;
+    if (balanceText.length > 13) balanceFontSize = 13;
+
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 60),
-        const SizedBox(height: 10),
         const Text(
-          '¡Gasto Excedido!',
-          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        Text(
-          'Los egresos (\$${format.format(totalSpent)}) superan a los ingresos (\$${format.format(income)})',
+          'Distribución del Ingreso',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
+        Text(
+          'Total Ingresos: \$${currencyFormat.format(income)}',
+          style: TextStyle(fontSize: 15, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 32),
+        
+        // Gráfico de Dona con Saldo Neto al centro
         SizedBox(
-          height: 100,
-          width: 100,
-          child: PieChart(
-            PieChartData(
-              sections: [
-                PieChartSectionData(
-                  color: Colors.red,
-                  value: 100,
-                  title: '100%',
-                  radius: 40,
-                  titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          height: 250,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (!isOverspent)
+                Container(
+                  width: 120, // Limitar ancho para que el texto no choque
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'SALDO NETO',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          balanceText,
+                          style: TextStyle(
+                            fontSize: balanceFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: balance >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              isOverspent 
+                ? _buildOverspentAlert(expense + savings, income, currencyFormat)
+                : PieChart(
+                PieChartData(
+                  pieTouchData: PieTouchData(
+                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                      setState(() {
+                        if (!event.isInterestedForInteractions ||
+                            pieTouchResponse == null ||
+                            pieTouchResponse.touchedSection == null) {
+                          touchedIndex = -1;
+                          return;
+                        }
+                        touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                      });
+                    },
+                  ),
+                  borderData: FlBorderData(show: false),
+                  sectionsSpace: 3,
+                  centerSpaceRadius: 75, 
+                  sections: _buildSections(
+                    income: income,
+                    expense: expense,
+                    savings: savings,
+                    balance: balance,
+                    currencyFormat: currencyFormat,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 40), // Espacio entre gráfico y leyenda solicitado
+        _buildLegend(),
+        const SizedBox(height: 40),
+        
+        // Detalle de movimientos AGRUPADOS
+        const Divider(thickness: 1),
+        const SizedBox(height: 16),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: EdgeInsets.only(left: 4.0),
+            child: Text(
+              'DETALLE POR CATEGORÍA', 
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 1.0),
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        ...groupedByCat.entries.map((entry) {
+          final categoria = state.categoriasMap[entry.key];
+          if (categoria == null) return const SizedBox.shrink();
+          
+          final items = entry.value;
+          final total = items.fold(0.0, (sum, item) => sum + item.monto);
+          final color = categoria.tipo == TipoCategoria.ahorro ? const Color(0xFF00BFFF) : (categoria.tipo == TipoCategoria.ingreso ? Colors.green : Colors.red);
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 0,
+            color: Colors.grey.shade50,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(color: Colors.grey.shade200), 
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              shape: const RoundedRectangleBorder(side: BorderSide.none),
+              collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+              leading: CircleAvatar(
+                backgroundColor: color.withOpacity(0.1), 
+                child: Icon(Icons.category, color: color, size: 20),
+              ),
+              title: Text(
+                categoria.descripcion, 
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              trailing: Text(
+                '\$${currencyFormat.format(total)}',
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              children: items.map((g) => ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+                title: Text(g.descripcion, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                subtitle: Text(DateFormat('dd/MM/yyyy').format(g.fecha), style: const TextStyle(fontSize: 11)),
+                trailing: Text(
+                  '\$${currencyFormat.format(g.monto)}', 
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                ),
+              )).toList(),
+            ),
+          );
+        }),
       ],
     );
   }
 
-  List<PieChartSectionData> _buildSections({
-    required double income,
-    required double expense,
-    required double savings,
-    required double balance,
-    required NumberFormat currencyFormat,
-  }) {
+  Widget _buildAnnualView(GastoLoaded state, NumberFormat currencyFormat) {
+    if (state.annualTotals.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.only(top: 50),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Text(
+          'Resumen Anual ${state.selectedMonth.year}',
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 32),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: 800, 
+            height: 300,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: _calculateMaxY(state.annualTotals),
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => Colors.blueGrey.shade800,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      String category = '';
+                      switch (rodIndex) {
+                        case 0: category = 'Ingreso'; break;
+                        case 1: category = 'Gasto'; break;
+                        case 2: category = 'Ahorro'; break;
+                      }
+                      return BarTooltipItem(
+                        '$category\n',
+                        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        children: [
+                          TextSpan(
+                            text: '\$${currencyFormat.format(rod.toY)}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                        final int index = value.toInt() - 1;
+                        if (index < 0 || index >= months.length) return const SizedBox.shrink();
+                        
+                        return SideTitleWidget(
+                          meta: meta,
+                          child: Text(months[index], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                        );
+                      },
+                      reservedSize: 30,
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                barGroups: state.annualTotals.entries.map((entry) {
+                  return BarChartGroupData(
+                    x: entry.key,
+                    barRods: [
+                      BarChartRodData(toY: entry.value.income, color: Colors.green.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                      BarChartRodData(toY: entry.value.expense, color: Colors.red.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                      BarChartRodData(toY: entry.value.savings, color: const Color(0xFF00BFFF), width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 40),
+        _buildLegend(),
+      ],
+    );
+  }
+
+  double _calculateMaxY(Map<int, MonthlySummary> data) {
+    double max = 0;
+    for (var m in data.values) {
+      if (m.income > max) max = m.income;
+      if (m.expense > max) max = m.expense;
+      if (m.savings > max) max = m.savings;
+    }
+    return max * 1.15;
+  }
+
+  Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 50),
+        const SizedBox(height: 8),
+        const Text('¡Gasto Excedido!', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Text(
+            'Egresos (\$${format.format(totalSpent)}) > Ingresos (\$${format.format(income)})', 
+            textAlign: TextAlign.center, 
+            style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(height: 50, width: 50, child: PieChart(PieChartData(sections: [PieChartSectionData(color: Colors.red, value: 100, title: '100%', radius: 20, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10))]))),
+      ],
+    );
+  }
+
+  List<PieChartSectionData> _buildSections({required double income, required double expense, required double savings, required double balance, required NumberFormat currencyFormat}) {
     final List<PieChartSectionData> sections = [];
     int currentIndex = 0;
-    
     if (income <= 0) return sections;
 
-    // Gastos
-    if (expense > 0) {
-      sections.add(_buildSection(
-        index: currentIndex++,
-        value: expense,
-        percentage: (expense / income) * 100,
-        title: 'Gastos',
-        color: Colors.red,
-        amount: expense,
-        currencyFormat: currencyFormat,
-      ));
-    }
-
-    // Ahorros
-    if (savings > 0) {
-      sections.add(_buildSection(
-        index: currentIndex++,
-        value: savings,
-        percentage: (savings / income) * 100,
-        title: 'Ahorros',
-        color: const Color(0xFF00BFFF),
-        amount: savings,
-        currencyFormat: currencyFormat,
-      ));
-    }
-
-    // Saldo (Disponible)
-    if (balance > 0) {
-      sections.add(_buildSection(
-        index: currentIndex++,
-        value: balance,
-        percentage: (balance / income) * 100,
-        title: 'Saldo',
-        color: Colors.green,
-        amount: balance,
-        currencyFormat: currencyFormat,
-      ));
-    }
+    if (expense > 0) sections.add(_buildSection(index: currentIndex++, value: expense, percentage: (expense / income) * 100, title: 'Gastos', color: Colors.red.shade600, amount: expense, currencyFormat: currencyFormat));
+    if (savings > 0) sections.add(_buildSection(index: currentIndex++, value: savings, percentage: (savings / income) * 100, title: 'Ahorros', color: const Color(0xFF00BFFF), amount: savings, currencyFormat: currencyFormat));
+    if (balance > 0) sections.add(_buildSection(index: currentIndex++, value: balance, percentage: (balance / income) * 100, title: 'Saldo', color: Colors.green.shade600, amount: balance, currencyFormat: currencyFormat));
 
     return sections;
   }
 
-  Widget _buildDetailItem(Gasto gasto, Color color, NumberFormat format, {Color? textColor}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  PieChartSectionData _buildSection({required int index, required double value, required double percentage, required String title, required Color color, required double amount, required NumberFormat currencyFormat}) {
+    final isTouched = index == touchedIndex;
+    return PieChartSectionData(
+      color: color,
+      value: value,
+      title: isTouched ? '${percentage.toStringAsFixed(1)}%\n\$${currencyFormat.format(amount)}' : '${percentage.toStringAsFixed(1)}%',
+      radius: isTouched ? 85.0 : 75.0,
+      titleStyle: TextStyle(fontSize: isTouched ? 15.0 : 11.0, fontWeight: FontWeight.bold, color: Colors.white, shadows: const [Shadow(color: Colors.black, blurRadius: 2)]),
+    );
+  }
+
+  Widget _buildLegend() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 24,
+        runSpacing: 12,
         children: [
-          Text(
-            gasto.descripcion,
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: textColor ?? Colors.black87),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            '\$ ${format.format(gasto.monto)}',
-            style: TextStyle(fontSize: 8, color: color, fontWeight: FontWeight.bold),
-          ),
+          _legendItem('Ingresos', Colors.green.shade600),
+          _legendItem('Gastos', Colors.red.shade600),
+          _legendItem('Saldo', const Color(0xFF00BFFF), customLabel: 'Ahorros'),
         ],
       ),
     );
   }
 
-  PieChartSectionData _buildSection({
-    required int index,
-    required double value,
-    required double percentage,
-    required String title,
-    required Color color,
-    required double amount,
-    required NumberFormat currencyFormat,
-  }) {
-    final isTouched = index == touchedIndex;
-    final fontSize = isTouched ? 16.0 : 11.0;
-    final radius = isTouched ? 95.0 : 85.0;
-
-    return PieChartSectionData(
-      color: color,
-      value: value,
-      title: isTouched 
-        ? '${percentage.toStringAsFixed(1)}%\n\$${currencyFormat.format(amount)}'
-        : '${percentage.toStringAsFixed(1)}%',
-      radius: radius,
-      titleStyle: TextStyle(
-        fontSize: fontSize,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
-        shadows: const [Shadow(color: Colors.black, blurRadius: 2)],
-      ),
-    );
-  }
-
-  Widget _buildLegend() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 15,
-      runSpacing: 10,
-      children: [
-        _legendItem('Saldo', Colors.green),
-        _legendItem('Gastos', Colors.red),
-        _legendItem('Ahorros', const Color(0xFF00BFFF)),
-      ],
-    );
-  }
-
-  Widget _legendItem(String label, Color color) {
+  Widget _legendItem(String label, Color color, {String? customLabel}) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.min, 
       children: [
         Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.rectangle,
-          ),
+          width: 12, 
+          height: 12, 
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ), 
+        const SizedBox(width: 8), 
+        Text(
+          customLabel ?? label, 
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
       ],
     );
   }

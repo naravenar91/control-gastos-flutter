@@ -39,6 +39,72 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
     on<AddGasto>(_onAddGasto);
     on<UpdateGasto>(_onUpdateGasto);
     on<DeleteGasto>(_onDeleteGasto);
+    on<LoadAnnualData>(_onLoadAnnualData);
+  }
+
+  /// Manejador del evento [LoadAnnualData].
+  Future<void> _onLoadAnnualData(LoadAnnualData event, Emitter<GastoState> emit) async {
+    final currentState = state;
+    if (currentState is GastoLoaded && currentState.annualTotals.isNotEmpty && currentState.selectedMonth.year == event.year) {
+      return; // Ya tenemos los datos anuales para este año
+    }
+
+    try {
+      final DateTime startOfYear = DateTime(event.year, 1, 1);
+      final DateTime endOfYear = DateTime(event.year, 12, 31, 23, 59, 59);
+
+      // 1. Obtener categorías
+      final List<Categoria> categorias = await _categoriaRepository.getAllCategorias();
+      final Map<int, Categoria> categoriasMap = {
+        for (var categoria in categorias) categoria.id: categoria
+      };
+
+      // 2. Obtener todos los gastos del año
+      final List<Gasto> annualGastos = await _gastoRepository.getGastosByDateRange(startOfYear, endOfYear);
+
+      // 3. Agrupar por mes y calcular totales
+      final Map<int, MonthlySummary> annualTotals = {};
+      for (int month = 1; month <= 12; month++) {
+        final DateTime startOfMonth = DateTime(event.year, month, 1);
+        final DateTime endOfMonth = DateTime(event.year, month + 1, 0, 23, 59, 59);
+        
+        // Filtrar gastos que aplican a este mes (incluyendo fijos)
+        final monthGastos = annualGastos.where((g) {
+          if (g.esFijo) {
+            return (g.fechaInicio == null || g.fechaInicio!.isBefore(endOfMonth)) &&
+                   (g.fechaFin == null || g.fechaFin!.isAfter(startOfMonth));
+          }
+          return g.fecha.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) && 
+                 g.fecha.isBefore(endOfMonth.add(const Duration(seconds: 1)));
+        }).toList();
+
+        final _Totals totals = _calculateTotals(monthGastos, categoriasMap);
+        annualTotals[month] = MonthlySummary(
+          income: totals.income,
+          expense: totals.expense,
+          savings: totals.savings,
+          balance: totals.total,
+        );
+      }
+
+      if (currentState is GastoLoaded) {
+        emit(GastoLoaded(
+          gastos: currentState.gastos,
+          totalMes: currentState.totalMes,
+          incomeTotal: currentState.incomeTotal,
+          expenseTotal: currentState.expenseTotal,
+          savingsTotal: currentState.savingsTotal,
+          categoriasMap: currentState.categoriasMap,
+          selectedMonth: currentState.selectedMonth,
+          annualTotals: annualTotals,
+        ));
+      } else {
+        // Si no hay estado previo, cargamos el mes actual también
+        add(LoadGastos(DateTime(event.year, DateTime.now().month)));
+      }
+    } catch (e) {
+      emit(GastoError('Error al cargar datos anuales: $e'));
+    }
   }
 
   /// Manejador del evento [LoadGastos].

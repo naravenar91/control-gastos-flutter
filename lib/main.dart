@@ -13,6 +13,7 @@ import 'presentation/bloc/gasto_bloc.dart';
 import 'presentation/bloc/gasto_event.dart';
 import 'presentation/bloc/theme_cubit.dart';
 import 'presentation/pages/main_screen.dart';
+import 'presentation/pages/splash_page.dart';
 import 'presentation/theme_provider.dart';
 
 /// Punto de entrada principal de la aplicación Flutter.
@@ -98,7 +99,7 @@ class MyApp extends StatelessWidget {
             Locale('en', 'US'), // Inglés (Estados Unidos)
             // Agrega más locales según sea necesario
           ],
-          home: const MainScreen(),
+          home: const SplashPage(),
           );
           },
           );

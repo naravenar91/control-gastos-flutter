@@ -18,6 +18,21 @@ class GastoLoading extends GastoState {
   const GastoLoading();
 }
 
+/// Clase para representar los totales de un mes específico.
+class MonthlySummary {
+  final double income;
+  final double expense;
+  final double savings;
+  final double balance;
+
+  const MonthlySummary({
+    required this.income,
+    required this.expense,
+    required this.savings,
+    required this.balance,
+  });
+}
+
 /// Estado cuando los gastos se han cargado exitosamente.
 class GastoLoaded extends GastoState {
   final List<Gasto> gastos;
@@ -27,6 +42,7 @@ class GastoLoaded extends GastoState {
   final double savingsTotal; // Total de ahorros
   final Map<int, Categoria> categoriasMap; // Mapa de categorías por ID
   final DateTime selectedMonth; // Mes seleccionado actual
+  final Map<int, MonthlySummary> annualTotals; // Totales por mes (1-12) del año actual
 
   const GastoLoaded({
     this.gastos = const [],
@@ -36,6 +52,7 @@ class GastoLoaded extends GastoState {
     this.savingsTotal = 0.0,
     this.categoriasMap = const {},
     required this.selectedMonth,
+    this.annualTotals = const {},
   });
 
   @override
@@ -47,6 +64,7 @@ class GastoLoaded extends GastoState {
         savingsTotal,
         categoriasMap,
         selectedMonth,
+        annualTotals,
       ];
 }
 

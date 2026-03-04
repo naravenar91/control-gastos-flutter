@@ -52,3 +52,13 @@ class DeleteGasto extends GastoEvent {
   @override
   List<Object> get props => [id];
 }
+
+/// Evento para solicitar la carga de datos anuales.
+class LoadAnnualData extends GastoEvent {
+  final int year;
+
+  const LoadAnnualData(this.year);
+
+  @override
+  List<Object> get props => [year];
+}
