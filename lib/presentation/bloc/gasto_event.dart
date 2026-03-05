@@ -53,6 +53,17 @@ class DeleteGasto extends GastoEvent {
   List<Object> get props => [id];
 }
 
+/// Evento para eliminar un grupo de gastos por categoría.
+class DeleteGroupGasto extends GastoEvent {
+  final List<int> ids;
+  final String categoryName;
+
+  const DeleteGroupGasto(this.ids, this.categoryName);
+
+  @override
+  List<Object> get props => [ids, categoryName];
+}
+
 /// Evento para solicitar la carga de datos anuales.
 class LoadAnnualData extends GastoEvent {
   final int year;

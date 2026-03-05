@@ -150,23 +150,26 @@ class HomePage extends StatelessWidget {
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
                         elevation: 1,
-                        child: ExpansionTile(
-                          shape: const RoundedRectangleBorder(side: BorderSide.none),
-                          collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-                          leading: CircleAvatar(
-                            backgroundColor: themeColor,
-                            child: Text(
-                              categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
-                              style: const TextStyle(color: Colors.white),
+                        child: GestureDetector(
+                          onLongPress: () => _confirmGroupDeletion(context, items, categoria?.descripcion ?? 'Sin Categoría'),
+                          child: ExpansionTile(
+                            shape: const RoundedRectangleBorder(side: BorderSide.none),
+                            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                            leading: CircleAvatar(
+                              backgroundColor: themeColor,
+                              child: Text(
+                                categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
+                            title: Text(categoria?.descripcion ?? 'Sin Categoría', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('${items.length} registros'),
+                            trailing: Text(
+                              _formatWithSign(totalGroup, categoria?.tipo, currencyFormat),
+                              style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            children: items.map((gasto) => _buildGastoDetailTile(context, gasto, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth)).toList(),
                           ),
-                          title: Text(categoria?.descripcion ?? 'Sin Categoría', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${items.length} registros'),
-                          trailing: Text(
-                            _formatWithSign(totalGroup, categoria?.tipo, currencyFormat),
-                            style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                          children: items.map((gasto) => _buildGastoDetailTile(context, gasto, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth)).toList(),
                         ),
                       );
                     },
@@ -281,6 +284,42 @@ class HomePage extends StatelessWidget {
   void _handleDeletion(BuildContext context, Gasto gasto) {
     context.read<GastoBloc>().add(DeleteGasto(gasto.id));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registro ${gasto.descripcion} eliminado')));
+  }
+
+  Future<void> _confirmGroupDeletion(BuildContext context, List<Gasto> items, String categoryName) async {
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar todo el grupo?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Se eliminarán:'),
+            const SizedBox(height: 8),
+            ...items.take(5).map((g) => Text('• ${g.descripcion}', style: const TextStyle(fontSize: 13, color: Colors.black87))),
+            if (items.length > 5) Text('... y ${items.length - 5} más', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('ELIMINAR TODO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      _handleGroupDeletion(context, items, categoryName);
+    }
+  }
+
+  void _handleGroupDeletion(BuildContext context, List<Gasto> items, String categoryName) {
+    final ids = items.map((g) => g.id).toList();
+    context.read<GastoBloc>().add(DeleteGroupGasto(ids, categoryName));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Grupo "$categoryName" eliminado con éxito')));
   }
 
   void _openEditSheet(BuildContext context, Gasto gasto, DateTime selectedMonth) {
