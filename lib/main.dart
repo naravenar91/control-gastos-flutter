@@ -10,6 +10,7 @@ import 'infrastructure/repositories/drift_categoria_repository.dart';
 import 'infrastructure/repositories/drift_gasto_repository.dart';
 import 'infrastructure/repositories/drift_presupuesto_repository.dart';
 import 'infrastructure/services/excel_export_service.dart';
+import 'infrastructure/services/pdf_export_service.dart';
 import 'presentation/bloc/export_bloc.dart';
 import 'presentation/bloc/gasto_bloc.dart';
 import 'presentation/bloc/gasto_event.dart';
@@ -60,6 +61,9 @@ void main() async {
         RepositoryProvider<ExcelExportService>(
           create: (context) => ExcelExportService(),
         ),
+        RepositoryProvider<PdfExportService>(
+          create: (context) => PdfExportService(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -81,6 +85,7 @@ void main() async {
               gastoRepository: context.read<GastoRepository>(),
               categoriaRepository: context.read<CategoriaRepository>(),
               excelExportService: context.read<ExcelExportService>(),
+              pdfExportService: context.read<PdfExportService>(),
             ),
           ),
         ],

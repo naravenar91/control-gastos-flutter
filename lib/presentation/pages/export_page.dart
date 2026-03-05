@@ -32,23 +32,6 @@ class ExportPage extends StatelessWidget {
               const Divider(),
               const SizedBox(height: 16),
               
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar exportación a PDF
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Función PDF en desarrollo')),
-                  );
-                },
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('Exportar a PDF'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.red.shade700,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
-              
               BlocConsumer<ExportBloc, ExportState>(
                 listener: (context, state) {
                   if (state is ExportError) {
@@ -56,41 +39,63 @@ class ExportPage extends StatelessWidget {
                       SnackBar(content: Text(state.message), backgroundColor: Colors.red),
                     );
                   } else if (state is ExportSuccess) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Text('Reporte generado con éxito'),
-                        action: SnackBarAction(
-                          label: 'COMPARTIR',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            Share.shareXFiles([XFile(state.path)], text: 'Mi reporte mensual');
-                          },
+                    if (state.isPdf) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('PDF compartido correctamente')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Reporte generado con éxito'),
+                          action: SnackBarAction(
+                            label: 'COMPARTIR',
+                            textColor: Colors.white,
+                            onPressed: () {
+                              Share.shareXFiles([XFile(state.path)], text: 'Mi reporte mensual');
+                            },
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   }
                 },
                 builder: (context, state) {
-                  if (state is ExportLoading) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: CircularProgressIndicator(),
+                  final isLoading = state is ExportLoading;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: isLoading
+                            ? null
+                            : () => context.read<ExportBloc>().add(ExportToPdfEvent(DateTime.now())),
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: const Text('Exportar a PDF'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                        ),
                       ),
-                    );
-                  }
-                  
-                  return ElevatedButton.icon(
-                    onPressed: () {
-                      context.read<ExportBloc>().add(ExportToExcelEvent(DateTime.now()));
-                    },
-                    icon: const Icon(Icons.table_view),
-                    label: const Text('Exportar a Excel'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: Colors.green.shade700,
-                      foregroundColor: Colors.white,
-                    ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: isLoading
+                            ? null
+                            : () => context.read<ExportBloc>().add(ExportToExcelEvent(DateTime.now())),
+                        icon: const Icon(Icons.table_view),
+                        label: const Text('Exportar a Excel'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      if (isLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 24.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                    ],
                   );
                 },
               ),
