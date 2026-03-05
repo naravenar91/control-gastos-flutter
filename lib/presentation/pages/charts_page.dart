@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../domain/models/categoria.dart';
 import '../../domain/models/chart_view.dart';
 import '../../domain/models/gasto.dart';
@@ -31,7 +32,7 @@ class _ChartsPageState extends State<ChartsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Análisis de Gastos'),
+        title: const Text(AppStrings.analisisDeGastos),
         centerTitle: true,
       ),
       body: BlocBuilder<GastoBloc, GastoState>(
@@ -59,12 +60,12 @@ class _ChartsPageState extends State<ChartsPage> {
                           segments: const [
                             ButtonSegment(
                               value: ChartView.monthly,
-                              label: Text('Mensual (Dona)'),
+                              label: Text(AppStrings.vistaMensual),
                               icon: Icon(Icons.pie_chart),
                             ),
                             ButtonSegment(
                               value: ChartView.annual,
-                              label: Text('Anual (Barras)'),
+                              label: Text(AppStrings.vistaAnual),
                               icon: Icon(Icons.bar_chart),
                             ),
                           ],
@@ -105,7 +106,7 @@ class _ChartsPageState extends State<ChartsPage> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 50),
-          child: Text('No hay datos suficientes para mostrar gráficos', style: TextStyle(color: Colors.grey)),
+          child: Text(AppStrings.noHayDatosGrficos, style: TextStyle(color: Colors.grey)),
         ),
       );
     }
@@ -127,13 +128,13 @@ class _ChartsPageState extends State<ChartsPage> {
     return Column(
       children: [
         const Text(
-          'Distribución del Ingreso',
+          AppStrings.distribucionIngreso,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
         ),
         const SizedBox(height: 8),
         Text(
-          'Total Ingresos: \$${currencyFormat.format(income)}',
+          '${AppStrings.totalIngresos} \$${currencyFormat.format(income)}',
           style: TextStyle(fontSize: 15, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 32),
@@ -153,7 +154,7 @@ class _ChartsPageState extends State<ChartsPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        'SALDO NETO',
+                        AppStrings.saldoNeto,
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 0.5),
                       ),
                       const SizedBox(height: 4),
@@ -215,7 +216,7 @@ class _ChartsPageState extends State<ChartsPage> {
           child: Padding(
             padding: EdgeInsets.only(left: 4.0),
             child: Text(
-              'DETALLE POR CATEGORÍA', 
+              AppStrings.detallePorCategoria, 
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 1.0),
             ),
           ),
@@ -283,7 +284,7 @@ class _ChartsPageState extends State<ChartsPage> {
     return Column(
       children: [
         Text(
-          'Resumen Anual ${state.selectedMonth.year}',
+          '${AppStrings.resumenAnual} ${state.selectedMonth.year}',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 48), // Aumentado para dar aire superior

@@ -10,6 +10,7 @@ import 'charts_page.dart';
 import 'export_page.dart';
 import 'home_page.dart';
 import 'settings_page.dart';
+import '../../core/constants/app_strings.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -65,23 +66,23 @@ class _MainScreenState extends State<MainScreen> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.list_alt),
-            label: 'Gastos',
+            label: AppStrings.navGastos,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.pie_chart),
-            label: 'Gráficos',
+            label: AppStrings.navGraficos,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.category),
-            label: 'Categorías',
+            label: AppStrings.navCategorias,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.file_upload),
-            label: 'Exportar',
+            label: AppStrings.navExportar,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'Ajustes',
+            label: AppStrings.navAjustes,
           ),
         ],
       ),
@@ -98,7 +99,7 @@ class _MainScreenState extends State<MainScreen> {
                     );
                   },
                   icon: const Icon(Icons.add),
-                  label: const Text('Nuevo Registro'),
+                  label: const Text(AppStrings.nuevoRegistro),
                   backgroundColor: Colors.green,
                 );
               },

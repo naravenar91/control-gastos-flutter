@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../domain/models/categoria.dart';
 import '../../domain/models/gasto.dart';
 import '../../domain/models/tipo_categoria.dart';
@@ -11,8 +13,36 @@ import '../bloc/gasto_state.dart';
 import '../widgets/add_gasto_sheet.dart';
 
 /// La pantalla principal de la aplicación que muestra un resumen de gastos e ingresos.
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _isSaldoVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSaldoVisibility();
+  }
+
+  Future<void> _loadSaldoVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isSaldoVisible = prefs.getBool('isSaldoVisible') ?? true;
+    });
+  }
+
+  Future<void> _toggleSaldoVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isSaldoVisible = !_isSaldoVisible;
+      prefs.setBool('isSaldoVisible', _isSaldoVisible);
+    });
+  }
 
   void _changeMonth(BuildContext context, DateTime currentMonth, int offset) {
     final newMonth = DateTime(currentMonth.year, currentMonth.month + offset);
@@ -26,7 +56,7 @@ class HomePage extends StatelessWidget {
         if (state is GastoLoading) {
           return const Center(child: CircularProgressIndicator());
         } else if (state is GastoError) {
-          return Center(child: Text('Error: ${state.message}'));
+          return Center(child: Text('${AppStrings.error}: ${state.message}'));
         } else if (state is GastoLoaded) {
           final NumberFormat currencyFormat = NumberFormat.decimalPattern('es_CL');
           final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
@@ -67,17 +97,38 @@ class HomePage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Saldo del Mes',
+                            AppStrings.saldoDelMes,
                             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                   color: Theme.of(context).colorScheme.onPrimary,
                                 ),
                           ),
-                          Text(
-                            '${balanceTotal >= 0 ? '\$ ' : '-\$ '}${currencyFormat.format(balanceTotal.abs())}',
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.onPrimary,
-                                  fontWeight: FontWeight.bold,
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                _isSaldoVisible 
+                                    ? '${balanceTotal >= 0 ? '\$ ' : '-\$ '}${currencyFormat.format(balanceTotal.abs())}'
+                                    : '\$ ••••••',
+                                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: Icon(
+                                  _isSaldoVisible ? Icons.visibility_off : Icons.visibility,
+                                  color: Colors.white.withOpacity(0.7),
                                 ),
+                                iconSize: Theme.of(context).textTheme.headlineLarge?.fontSize ?? 32,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: _toggleSaldoVisibility,
+                                tooltip: _isSaldoVisible ? AppStrings.ocultarSaldo : AppStrings.mostrarSaldo,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 40),
                         ],
@@ -96,14 +147,16 @@ class HomePage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Resumen Mensual', style: Theme.of(context).textTheme.titleMedium),
+                            Text(AppStrings.resumenMensual, style: Theme.of(context).textTheme.titleMedium),
                             const SizedBox(height: 10),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Ingresos:'),
+                                const Text('${AppStrings.ingresos}:'),
                                 Text(
-                                  '+\$ ${currencyFormat.format(state.incomeTotal)}',
+                                  _isSaldoVisible 
+                                      ? '+\$ ${currencyFormat.format(state.incomeTotal)}'
+                                      : '+\$ ••••••',
                                   style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -112,9 +165,11 @@ class HomePage extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Gastos:'),
+                                const Text('${AppStrings.gastos}:'),
                                 Text(
-                                  '-\$ ${currencyFormat.format(state.expenseTotal)}',
+                                  _isSaldoVisible 
+                                      ? '-\$ ${currencyFormat.format(state.expenseTotal)}'
+                                      : '-\$ ••••••',
                                   style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
                                 ),
                               ],
@@ -177,16 +232,6 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (context) => AddGastoSheet(selectedMonth: state.selectedMonth),
-                );
-              },
-              child: const Icon(Icons.add),
             ),
           );
         }
@@ -251,6 +296,8 @@ class HomePage extends StatelessWidget {
   }
 
   String _formatWithSign(double amount, TipoCategoria? tipo, NumberFormat format) {
+    if (!_isSaldoVisible) return '\$ ••••••';
+    
     final String formatted = format.format(amount.abs());
     if (tipo == TipoCategoria.ingreso) return '+\$ $formatted';
     if (tipo == TipoCategoria.ahorro) return '\$ $formatted';
@@ -271,11 +318,11 @@ class HomePage extends StatelessWidget {
     return await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar eliminación'),
+        title: const Text(AppStrings.confirmarEliminacion),
         content: Text('¿Estás seguro de eliminar "${gasto.descripcion}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('ELIMINAR', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppStrings.cancelar.toUpperCase())),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(AppStrings.eliminar.toUpperCase(), style: const TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -283,14 +330,14 @@ class HomePage extends StatelessWidget {
 
   void _handleDeletion(BuildContext context, Gasto gasto) {
     context.read<GastoBloc>().add(DeleteGasto(gasto.id));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Registro ${gasto.descripcion} eliminado')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${AppStrings.registroEliminado}: ${gasto.descripcion}')));
   }
 
   Future<void> _confirmGroupDeletion(BuildContext context, List<Gasto> items, String categoryName) async {
     final bool? result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('¿Eliminar todo el grupo?'),
+        title: const Text(AppStrings.eliminarGrupoPregunta),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,10 +349,10 @@ class HomePage extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppStrings.cancelar.toUpperCase())),
           TextButton(
             onPressed: () => Navigator.pop(context, true), 
-            child: const Text('ELIMINAR TODO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            child: Text('${AppStrings.eliminar.toUpperCase()} TODO', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -319,7 +366,7 @@ class HomePage extends StatelessWidget {
   void _handleGroupDeletion(BuildContext context, List<Gasto> items, String categoryName) {
     final ids = items.map((g) => g.id).toList();
     context.read<GastoBloc>().add(DeleteGroupGasto(ids, categoryName));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Grupo "$categoryName" eliminado con éxito')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(AppStrings.grupoEliminado)));
   }
 
   void _openEditSheet(BuildContext context, Gasto gasto, DateTime selectedMonth) {
