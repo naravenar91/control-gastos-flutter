@@ -398,6 +398,8 @@ class CategoriasPage extends StatelessWidget {
                   onSelected: (value) {
                     if (value == 'edit') {
                       _showEditCategoriaDialog(context, cat);
+                    } else if (value == 'delete') {
+                      _handleDelete(context, cat);
                     }
                   },
                   itemBuilder: (context) => [
@@ -407,13 +409,22 @@ class CategoriasPage extends StatelessWidget {
                         children: [
                           Icon(Icons.edit, size: 20),
                           SizedBox(width: 8),
-                          Text('Editar Categoría'),
+                          Text('Editar'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('Eliminar', style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
                   ],
                 ),
-                onLongPress: () => _handleDelete(context, cat),
               );
             },
           );

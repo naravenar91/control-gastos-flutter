@@ -295,7 +295,10 @@ class _ChartsPageState extends State<ChartsPage> {
                 maxY: _calculateMaxY(state.annualTotals),
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => Colors.blueGrey.shade800,
+                    getTooltipColor: (_) => Colors.blueGrey.shade900.withOpacity(0.9),
+                    tooltipMargin: 0,
+                    fitInsideHorizontally: true,
+                    fitInsideVertically: true,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       String category = '';
                       switch (rodIndex) {
@@ -308,7 +311,7 @@ class _ChartsPageState extends State<ChartsPage> {
                         const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                         children: [
                           TextSpan(
-                            text: '\$${currencyFormat.format(rod.toY)}',
+                            text: currencyFormat.format(rod.toY),
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
                           ),
                         ],
@@ -367,7 +370,7 @@ class _ChartsPageState extends State<ChartsPage> {
       if (m.expense > max) max = m.expense;
       if (m.savings > max) max = m.savings;
     }
-    return max * 1.15;
+    return max * 1.2;
   }
 
   Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
