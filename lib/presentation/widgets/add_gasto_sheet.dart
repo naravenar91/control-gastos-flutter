@@ -440,13 +440,22 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                 ),
               
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _saveGasto,
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar Registro'),
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+              SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                bottom: true,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom > 0 ? 0 : 16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _saveGasto,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Guardar Registro'),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
             ],
           ),
         ),
