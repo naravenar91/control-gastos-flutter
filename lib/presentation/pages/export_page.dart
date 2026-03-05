@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
+import '../bloc/export_bloc.dart';
 
 class ExportPage extends StatelessWidget {
   const ExportPage({super.key});
@@ -45,41 +48,54 @@ class ExportPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar exportación a CSV
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Función CSV/Excel en desarrollo')),
+              
+              BlocConsumer<ExportBloc, ExportState>(
+                listener: (context, state) {
+                  if (state is ExportError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+                    );
+                  } else if (state is ExportSuccess) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Reporte generado con éxito'),
+                        action: SnackBarAction(
+                          label: 'COMPARTIR',
+                          textColor: Colors.white,
+                          onPressed: () {
+                            Share.shareXFiles([XFile(state.path)], text: 'Mi reporte mensual');
+                          },
+                        ),
+                      ),
+                    );
+                  }
+                },
+                builder: (context, state) {
+                  if (state is ExportLoading) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+                  
+                  return ElevatedButton.icon(
+                    onPressed: () {
+                      context.read<ExportBloc>().add(ExportToExcelEvent(DateTime.now()));
+                    },
+                    icon: const Icon(Icons.table_view),
+                    label: const Text('Exportar a Excel'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.all(16),
+                      backgroundColor: Colors.green.shade700,
+                      foregroundColor: Colors.white,
+                    ),
                   );
                 },
-                icon: const Icon(Icons.table_view),
-                label: const Text('Exportar a CSV/Excel'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.green.shade700,
-                  foregroundColor: Colors.white,
-                ),
               ),
               
               const SizedBox(height: 40),
-              /*const Card(
-                color: Color(0xFFFFF9C4), // Amarillo suave informativo
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Las funciones de Respaldo y Restauración se han movido a la pestaña de Ajustes.',
-                          style: TextStyle(fontSize: 13, color: Colors.black87),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),*/
             ],
           ),
         ),
