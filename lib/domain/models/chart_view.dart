@@ -1,0 +1,1 @@
+enum ChartView { monthly, annual }

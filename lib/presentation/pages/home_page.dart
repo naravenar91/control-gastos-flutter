@@ -295,7 +295,7 @@ class HomePage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Se eliminarán:'),
+            const Text('Se Eliminarán:'),
             const SizedBox(height: 8),
             ...items.take(5).map((g) => Text('• ${g.descripcion}', style: const TextStyle(fontSize: 13, color: Colors.black87))),
             if (items.length > 5) Text('... y ${items.length - 5} más', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),

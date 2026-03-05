@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'home_page.dart';
-import 'charts_page.dart';
-import 'export_page.dart';
-import 'categorias_page.dart';
-import 'settings_page.dart';
-import '../widgets/add_gasto_sheet.dart';
+
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_state.dart';
+import '../widgets/add_gasto_sheet.dart';
+import 'categorias_page.dart';
+import 'charts_page.dart';
+import 'export_page.dart';
+import 'home_page.dart';
+import 'settings_page.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});

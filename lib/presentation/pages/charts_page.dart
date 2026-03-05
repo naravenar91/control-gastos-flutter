@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+
+import '../../domain/models/categoria.dart';
+import '../../domain/models/chart_view.dart';
+import '../../domain/models/gasto.dart';
+import '../../domain/models/tipo_categoria.dart';
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
 import '../bloc/gasto_state.dart';
-import '../../domain/models/tipo_categoria.dart';
-import '../../domain/models/gasto.dart';
-import '../../domain/models/categoria.dart';
-
-enum ChartView { monthly, annual }
+import '../widgets/chart_legend.dart';
+import '../widgets/overspent_alert.dart';
 
 class ChartsPage extends StatefulWidget {
   const ChartsPage({super.key});
@@ -169,7 +172,7 @@ class _ChartsPageState extends State<ChartsPage> {
                   ),
                 ),
               isOverspent 
-                ? _buildOverspentAlert(expense + savings, income, currencyFormat)
+                ? OverspentAlert(totalSpent: expense + savings, income: income, format: currencyFormat)
                 : PieChart(
                 PieChartData(
                   pieTouchData: PieTouchData(
@@ -201,7 +204,7 @@ class _ChartsPageState extends State<ChartsPage> {
           ),
         ),
         const SizedBox(height: 40), // Espacio entre gráfico y leyenda solicitado
-        _buildLegend(),
+        const ChartLegend(),
         const SizedBox(height: 40),
         
         // Detalle de movimientos AGRUPADOS
@@ -383,7 +386,7 @@ class _ChartsPageState extends State<ChartsPage> {
           ),
         ),
         const SizedBox(height: 60), // Aumentado espacio entre gráfico y leyenda
-        _buildLegend(),
+        const ChartLegend(),
       ],
     );
   }
@@ -419,27 +422,6 @@ class _ChartsPageState extends State<ChartsPage> {
     return value.toStringAsFixed(0);
   }
 
-  Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 50),
-        const SizedBox(height: 8),
-        const Text('¡Gasto Excedido!', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Text(
-            'Egresos (\$${format.format(totalSpent)}) > Ingresos (\$${format.format(income)})', 
-            textAlign: TextAlign.center, 
-            style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(height: 50, width: 50, child: PieChart(PieChartData(sections: [PieChartSectionData(color: Colors.red, value: 100, title: '100%', radius: 20, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10))]))),
-      ],
-    );
-  }
-
   List<PieChartSectionData> _buildSections({required double income, required double expense, required double savings, required double balance, required NumberFormat currencyFormat}) {
     final List<PieChartSectionData> sections = [];
     int currentIndex = 0;
@@ -460,45 +442,6 @@ class _ChartsPageState extends State<ChartsPage> {
       title: isTouched ? '${percentage.toStringAsFixed(1)}%\n\$${currencyFormat.format(amount)}' : '${percentage.toStringAsFixed(1)}%',
       radius: isTouched ? 85.0 : 75.0,
       titleStyle: TextStyle(fontSize: isTouched ? 15.0 : 11.0, fontWeight: FontWeight.bold, color: Colors.white, shadows: const [Shadow(color: Colors.black, blurRadius: 2)]),
-    );
-  }
-
-  Widget _buildLegend() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 24,
-        runSpacing: 12,
-        children: [
-          _legendItem('Ingresos', Colors.green.shade600),
-          _legendItem('Gastos', Colors.red.shade600),
-          _legendItem('Saldo', const Color(0xFF00BFFF), customLabel: 'Ahorros'),
-        ],
-      ),
-    );
-  }
-
-  Widget _legendItem(String label, Color color, {String? customLabel}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min, 
-      children: [
-        Container(
-          width: 12, 
-          height: 12, 
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ), 
-        const SizedBox(width: 8), 
-        Text(
-          customLabel ?? label, 
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-      ],
     );
   }
 }
