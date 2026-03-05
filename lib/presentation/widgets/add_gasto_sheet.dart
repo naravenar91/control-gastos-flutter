@@ -32,6 +32,7 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
 
   Categoria? _selectedCategoria;
   bool _esFijo = false;
+  bool _isExpanded = false;
   DateTime _selectedDate = DateTime.now();
   DateTime? _selectedFechaInicio;
   DateTime? _selectedFechaFin;
@@ -232,6 +233,57 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
     }
   }
 
+  String get _recurrenceLabel {
+    final tipo = _selectedCategoria?.tipo;
+    if (tipo == TipoCategoria.ingreso) return '¿Es un ingreso recurrente?';
+    if (tipo == TipoCategoria.ahorro) return '¿Es un ahorro programado?';
+    return '¿Es un gasto fijo?';
+  }
+
+  void _showFixedGastoInfo() {
+    final tipo = _selectedCategoria?.tipo;
+    String title = '¿Qué es un gasto fijo?';
+    String term = 'gasto fijo';
+    String examples = 'Ejemplos: Dividendo, Internet, Plan de celular, etc.';
+
+    if (tipo == TipoCategoria.ingreso) {
+      title = '¿Qué es un ingreso recurrente?';
+      term = 'ingreso recurrente';
+      examples = 'Ejemplos: Sueldo mensual, Arriendo percibido, Jubilación, etc.';
+    } else if (tipo == TipoCategoria.ahorro) {
+      title = '¿Qué es un ahorro programado?';
+      term = 'ahorro programado';
+      examples = 'Ejemplos: Ahorro para vacaciones, Fondo de emergencia mensual, etc.';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Un $term es aquel que:'),
+            const SizedBox(height: 8),
+            const Text('• Se repite periódicamente.'),
+            const Text('• Tiene un monto igual o muy similar.'),
+            const SizedBox(height: 16),
+            Text(examples, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.blueGrey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(foregroundColor: Colors.green.shade700),
+            child: const Text('ENTENDIDO', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showReminderDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -322,7 +374,18 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('¿Es un gasto fijo?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_recurrenceLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                      IconButton(
+                        onPressed: _showFixedGastoInfo,
+                        icon: const Icon(Icons.info_outline, size: 18, color: Colors.blueGrey),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
                   Switch(
                     value: _esFijo,
                     activeColor: Colors.red.shade700,
@@ -377,13 +440,22 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
                 ),
               
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _saveGasto,
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar Registro'),
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+              SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                bottom: true,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom > 0 ? 0 : 16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _saveGasto,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Guardar Registro'),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -396,19 +468,61 @@ class _AddGastoSheetState extends State<AddGastoSheet> {
       stream: context.read<CategoriaRepository>().watchAllCategorias(),
       builder: (context, snapshot) {
         final raw = snapshot.data ?? [];
-        if (raw.isEmpty && snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final cats = List<Categoria>.from(raw)..sort((a, b) {
-          int getPriority(String d) { final s = d.toLowerCase(); if (s == 'sueldo') return 0; if (s == 'crédito' || s == 'credito') return 1; if (s == 'ahorro') return 2; return 3; }
-          final pA = getPriority(a.descripcion); final pB = getPriority(b.descripcion); return (pA != pB) ? pA.compareTo(pB) : a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase());
-        });
-        if (_selectedCategoria == null && cats.isNotEmpty) {
-          _selectedCategoria = widget.gasto != null ? cats.firstWhere((c) => c.id == widget.gasto!.idCategoria, orElse: () => cats.first) : cats.first;
+        if (raw.isEmpty && snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
-        return SizedBox(height: 50, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: cats.length + 1, separatorBuilder: (c, i) => const SizedBox(width: 8), itemBuilder: (c, i) {
-          if (i == cats.length) return ActionChip(avatar: const Icon(Icons.add, size: 18), label: const Text('Nueva'), onPressed: _showCreateCategoriaDialog);
-          final cat = cats[i]; final isSelected = _selectedCategoria?.id == cat.id; final color = Color(cat.colorValue);
-          return ChoiceChip(label: Text(cat.descripcion), selected: isSelected, selectedColor: color.withOpacity(0.3), side: isSelected ? BorderSide(color: color, width: 2) : null, onSelected: (s) { if (s) setState(() => _selectedCategoria = cat); });
-        }));
+        
+        final cats = List<Categoria>.from(raw)..sort((a, b) {
+          int getPriority(String d) { 
+            final s = d.toLowerCase(); 
+            if (s == 'sueldo') return 0; 
+            if (s == 'crédito' || s == 'credito') return 1; 
+            if (s == 'ahorro') return 2; 
+            return 3; 
+          }
+          final pA = getPriority(a.descripcion); 
+          final pB = getPriority(b.descripcion); 
+          return (pA != pB) ? pA.compareTo(pB) : a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase());
+        });
+
+        if (_selectedCategoria == null && cats.isNotEmpty) {
+          _selectedCategoria = widget.gasto != null 
+              ? cats.firstWhere((c) => c.id == widget.gasto!.idCategoria, orElse: () => cats.first) 
+              : cats.first;
+        }
+
+        final visibleCats = _isExpanded ? cats : cats.take(3).toList();
+
+        return Wrap(
+          spacing: 8.0,
+          runSpacing: 8.0,
+          children: [
+            ...visibleCats.map((cat) {
+              final isSelected = _selectedCategoria?.id == cat.id;
+              final color = Color(cat.colorValue);
+              return ChoiceChip(
+                label: Text(cat.descripcion),
+                selected: isSelected,
+                selectedColor: color.withOpacity(0.3),
+                side: isSelected ? BorderSide(color: color, width: 2) : null,
+                onSelected: (s) {
+                  if (s) setState(() => _selectedCategoria = cat);
+                },
+              );
+            }),
+            if (!_isExpanded && cats.length > 3)
+              ActionChip(
+                label: const Text('Ver todas'),
+                avatar: const Icon(Icons.keyboard_arrow_down, size: 18),
+                onPressed: () => setState(() => _isExpanded = true),
+              ),
+            ActionChip(
+              avatar: const Icon(Icons.add, size: 18),
+              label: const Text('Nueva'),
+              onPressed: _showCreateCategoriaDialog,
+            ),
+          ],
+        );
       },
     );
   }
