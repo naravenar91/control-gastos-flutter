@@ -9,6 +9,9 @@ import 'infrastructure/app_database.dart';
 import 'infrastructure/repositories/drift_categoria_repository.dart';
 import 'infrastructure/repositories/drift_gasto_repository.dart';
 import 'infrastructure/repositories/drift_presupuesto_repository.dart';
+import 'infrastructure/services/excel_export_service.dart';
+import 'infrastructure/services/pdf_export_service.dart';
+import 'presentation/bloc/export_bloc.dart';
 import 'presentation/bloc/gasto_bloc.dart';
 import 'presentation/bloc/gasto_event.dart';
 import 'presentation/bloc/theme_cubit.dart';
@@ -55,6 +58,12 @@ void main() async {
         RepositoryProvider<PresupuestoRepository>(
           create: (context) => DriftPresupuestoRepository(database),
         ),
+        RepositoryProvider<ExcelExportService>(
+          create: (context) => ExcelExportService(),
+        ),
+        RepositoryProvider<PdfExportService>(
+          create: (context) => PdfExportService(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -69,6 +78,15 @@ void main() async {
               context.read<GastoRepository>(),
               context.read<CategoriaRepository>(),
             )..add(LoadGastos(DateTime.now())), // Carga inicial de gastos para el mes actual.
+          ),
+          // ExportBloc se encarga de la exportación de reportes.
+          BlocProvider<ExportBloc>(
+            create: (context) => ExportBloc(
+              gastoRepository: context.read<GastoRepository>(),
+              categoriaRepository: context.read<CategoriaRepository>(),
+              excelExportService: context.read<ExcelExportService>(),
+              pdfExportService: context.read<PdfExportService>(),
+            ),
           ),
         ],
         child: const MyApp(),

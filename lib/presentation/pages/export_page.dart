@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
+import '../bloc/export_bloc.dart';
 
 class ExportPage extends StatelessWidget {
   const ExportPage({super.key});
@@ -29,57 +32,75 @@ class ExportPage extends StatelessWidget {
               const Divider(),
               const SizedBox(height: 16),
               
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar exportación a PDF
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Función PDF en desarrollo')),
+              BlocConsumer<ExportBloc, ExportState>(
+                listener: (context, state) {
+                  if (state is ExportError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(state.message), backgroundColor: Colors.red),
+                    );
+                  } else if (state is ExportSuccess) {
+                    if (state.isPdf) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('PDF compartido correctamente')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Reporte generado con éxito'),
+                          action: SnackBarAction(
+                            label: 'COMPARTIR',
+                            textColor: Colors.white,
+                            onPressed: () {
+                              Share.shareXFiles([XFile(state.path)], text: 'Mi reporte mensual');
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                },
+                builder: (context, state) {
+                  final isLoading = state is ExportLoading;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: isLoading
+                            ? null
+                            : () => context.read<ExportBloc>().add(ExportToPdfEvent(DateTime.now())),
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: const Text('Exportar a PDF'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: isLoading
+                            ? null
+                            : () => context.read<ExportBloc>().add(ExportToExcelEvent(DateTime.now())),
+                        icon: const Icon(Icons.table_view),
+                        label: const Text('Exportar a Excel'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: Colors.green.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      if (isLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 24.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                    ],
                   );
                 },
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text('Exportar a PDF'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.red.shade700,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar exportación a CSV
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Función CSV/Excel en desarrollo')),
-                  );
-                },
-                icon: const Icon(Icons.table_view),
-                label: const Text('Exportar a CSV/Excel'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.green.shade700,
-                  foregroundColor: Colors.white,
-                ),
               ),
               
               const SizedBox(height: 40),
-              /*const Card(
-                color: Color(0xFFFFF9C4), // Amarillo suave informativo
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Las funciones de Respaldo y Restauración se han movido a la pestaña de Ajustes.',
-                          style: TextStyle(fontSize: 13, color: Colors.black87),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),*/
             ],
           ),
         ),

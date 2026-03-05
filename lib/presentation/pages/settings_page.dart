@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../bloc/theme_cubit.dart';
@@ -10,6 +11,7 @@ import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
 import '../../infrastructure/notification_service.dart';
 import '../../infrastructure/app_database.dart';
+import '../../core/constants/app_strings.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -23,11 +25,20 @@ class _SettingsPageState extends State<SettingsPage> {
   TimeOfDay _notificationTime = const TimeOfDay(hour: 9, minute: 0);
   final List<bool> _selectedDays = List.generate(7, (_) => true);
   final List<String> _dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  String _appVersion = AppStrings.cargando;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _loadAppInfo();
+  }
+
+  Future<void> _loadAppInfo() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = packageInfo.version;
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -296,6 +307,99 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () => _showBackupOptions(context),
             ),
           ),
+          const SizedBox(height: 24),
+
+          // SECCIÓN INFORMACIÓN
+          _buildSectionTitle('INFORMACIÓN'),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline, color: Colors.blueGrey),
+              title: const Text('Acerca de la aplicación'),
+              subtitle: const Text('Créditos y versión del proyecto'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showAboutAppDialog(context),
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutAppDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.account_balance_wallet, color: Colors.green, size: 40),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Gestor de Finanzas Personales',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Versión $_appVersion',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Una herramienta intuitiva para registrar tus movimientos financieros, analizar tus hábitos mediante gráficos y gestionar tus categorías de ahorro de forma eficiente.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const Divider(height: 32),
+            const Text(
+              'Desarrollado por:',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+            ),
+            const Text(
+              'Nicolás Enrique Aravena Riquelme',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Santiago de Chile 🇨🇱',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Cerrar',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );

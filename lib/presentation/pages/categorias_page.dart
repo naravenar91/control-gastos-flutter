@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/models/categoria.dart';
-import '../../domain/models/tipo_categoria.dart';
 import '../../domain/repositories/categoria_repository.dart';
-import '../bloc/gasto_bloc.dart';
-import '../bloc/gasto_event.dart';
-import '../bloc/gasto_state.dart';
+import '../widgets/add_categoria_sheet.dart';
+import '../../core/constants/app_strings.dart';
 
 class CategoriasPage extends StatelessWidget {
   const CategoriasPage({super.key});
@@ -19,13 +17,12 @@ class CategoriasPage extends StatelessWidget {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('No se puede eliminar'),
-          content: const Text(
-              'No se puede eliminar esta categoría porque tiene registros asociados. Por favor, mueva o elimine los registros primero.'),
+          title: const Text(AppStrings.noSePuedeEliminar),
+          content: const Text(AppStrings.noSePuedeEliminarMensaje),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('ENTENDIDO'),
+              child: const Text(AppStrings.entendido),
             ),
           ],
         ),
@@ -37,16 +34,16 @@ class CategoriasPage extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar Categoría'),
+        title: const Text(AppStrings.eliminarCategoria),
         content: Text('¿Estás seguro de que deseas eliminar "${categoria.descripcion}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCELAR'),
+            child: const Text(AppStrings.cancelar),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ELIMINAR', style: TextStyle(color: Colors.red)),
+            child: const Text(AppStrings.eliminar, style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -56,297 +53,21 @@ class CategoriasPage extends StatelessWidget {
       await repo.deleteCategoria(categoria.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Categoría eliminada con éxito')),
+          const SnackBar(content: Text(AppStrings.categoriaEliminada)),
         );
       }
     }
   }
 
-  Future<void> _showCreateCategoriaDialog(BuildContext context) async {
-    final TextEditingController categoriaController = TextEditingController();
-    TipoCategoria selectedTipo = TipoCategoria.gasto;
-    Color selectedColor = Colors.orange;
-    
-    final List<Color> availableColors = [
-      Colors.green,
-      Colors.red,
-      Colors.blue,
-      Colors.orange,
-      Colors.purple,
-      Colors.teal,
-      Colors.pink,
-      Colors.amber,
-      Colors.indigo,
-      const Color(0xFF00BFFF), // Celeste Ahorro
-    ];
-    
-    await showDialog(
+  void _showAddCategoriaSheet(BuildContext context, {Categoria? categoria}) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Nueva Categoría'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: categoriaController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    hintText: 'Ej: Supermercado, Salario...',
-                  ),
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 15),
-                const Text('Tipo:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<TipoCategoria>(
-                        title: const Text('Gasto', style: TextStyle(fontSize: 10)),
-                        value: TipoCategoria.gasto,
-                        groupValue: selectedTipo,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<TipoCategoria>(
-                        title: const Text('Ingreso', style: TextStyle(fontSize: 10)),
-                        value: TipoCategoria.ingreso,
-                        groupValue: selectedTipo,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<TipoCategoria>(
-                        title: const Text('Ahorro', style: TextStyle(fontSize: 10)),
-                        value: TipoCategoria.ahorro,
-                        groupValue: selectedTipo,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                const Text('Color:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  width: double.maxFinite,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: availableColors.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final color = availableColors[index];
-                      final isSelected = color.value == selectedColor.value;
-                      return GestureDetector(
-                        onTap: () => setDialogState(() => selectedColor = color),
-                        child: Container(
-                          width: 35,
-                          height: 35,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
-                          ),
-                          child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final nombre = categoriaController.text.trim();
-                if (nombre.isNotEmpty) {
-                  final newCategoria = Categoria(
-                    id: 0,
-                    descripcion: nombre,
-                    colorValue: selectedColor.value,
-                    tipo: selectedTipo,
-                  );
-                  
-                  try {
-                    await context.read<CategoriaRepository>().insertCategoria(newCategoria);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Categoría creada exitosamente')),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al crear categoría: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
       ),
-    );
-  }
-
-  Future<void> _showEditCategoriaDialog(BuildContext context, Categoria categoria) async {
-    final TextEditingController categoriaController = TextEditingController(text: categoria.descripcion);
-    TipoCategoria selectedTipo = categoria.tipo;
-    Color selectedColor = Color(categoria.colorValue);
-    
-    final List<Color> availableColors = [
-      Colors.green,
-      Colors.red,
-      Colors.blue,
-      Colors.orange,
-      Colors.purple,
-      Colors.teal,
-      Colors.pink,
-      Colors.amber,
-      Colors.indigo,
-      const Color(0xFF00BFFF), // Celeste Ahorro
-    ];
-    
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Editar Categoría'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: categoriaController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                  ),
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-                const SizedBox(height: 15),
-                const Text('Tipo:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<TipoCategoria>(
-                        title: const Text('Gasto', style: TextStyle(fontSize: 10)),
-                        value: TipoCategoria.gasto,
-                        groupValue: selectedTipo,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<TipoCategoria>(
-                        title: const Text('Ingreso', style: TextStyle(fontSize: 10)),
-                        value: TipoCategoria.ingreso,
-                        groupValue: selectedTipo,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<TipoCategoria>(
-                        title: const Text('Ahorro', style: TextStyle(fontSize: 10)),
-                        value: TipoCategoria.ahorro,
-                        groupValue: selectedTipo,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setDialogState(() => selectedTipo = value!),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                const Text('Color:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  width: double.maxFinite,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: availableColors.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final color = availableColors[index];
-                      final isSelected = color.value == selectedColor.value;
-                      return GestureDetector(
-                        onTap: () => setDialogState(() => selectedColor = color),
-                        child: Container(
-                          width: 35,
-                          height: 35,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
-                          ),
-                          child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final nombre = categoriaController.text.trim();
-                if (nombre.isNotEmpty) {
-                  final updatedCategoria = categoria.copyWith(
-                    descripcion: nombre,
-                    colorValue: selectedColor.value,
-                    tipo: selectedTipo,
-                  );
-                  
-                  try {
-                    await context.read<CategoriaRepository>().updateCategoria(updatedCategoria);
-                    
-                    if (context.mounted) {
-                      final gastoBloc = context.read<GastoBloc>();
-                      if (gastoBloc.state is GastoLoaded) {
-                        gastoBloc.add(LoadGastos((gastoBloc.state as GastoLoaded).selectedMonth));
-                      }
-                      
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Categoría actualizada')),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                }
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        ),
-      ),
+      builder: (context) => AddCategoriaSheet(categoria: categoria),
     );
   }
 
@@ -354,7 +75,7 @@ class CategoriasPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestionar Categorías'),
+        title: const Text(AppStrings.gestionarCategorias),
         centerTitle: true,
       ),
       body: StreamBuilder<List<Categoria>>(
@@ -397,7 +118,9 @@ class CategoriasPage extends StatelessWidget {
                   icon: const Icon(Icons.more_vert),
                   onSelected: (value) {
                     if (value == 'edit') {
-                      _showEditCategoriaDialog(context, cat);
+                      _showAddCategoriaSheet(context, categoria: cat);
+                    } else if (value == 'delete') {
+                      _handleDelete(context, cat);
                     }
                   },
                   itemBuilder: (context) => [
@@ -407,23 +130,39 @@ class CategoriasPage extends StatelessWidget {
                         children: [
                           Icon(Icons.edit, size: 20),
                           SizedBox(width: 8),
-                          Text('Editar Categoría'),
+                          Text(AppStrings.editar),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text(AppStrings.eliminar, style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
                   ],
                 ),
-                onLongPress: () => _handleDelete(context, cat),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateCategoriaDialog(context),
-        tooltip: 'Nueva Categoría',
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddCategoriaSheet(context),
+        tooltip: AppStrings.nuevaCategoria,
+        icon: const Icon(Icons.add),
+        label: const Text(AppStrings.nuevaCategoria),
+        backgroundColor: Colors.green,
       ),
     );
   }
+}
+
+// Extensión para corregir error tipográfico en AppBar si es necesario o asegurar consistencia
+extension on Scaffold {
+  AppBar get app_bar => appBar as AppBar;
 }

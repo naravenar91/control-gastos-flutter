@@ -39,7 +39,27 @@ class GastoBloc extends Bloc<GastoEvent, GastoState> {
     on<AddGasto>(_onAddGasto);
     on<UpdateGasto>(_onUpdateGasto);
     on<DeleteGasto>(_onDeleteGasto);
+    on<DeleteGroupGasto>(_onDeleteGroupGasto);
     on<LoadAnnualData>(_onLoadAnnualData);
+  }
+
+  /// Manejador del evento [DeleteGroupGasto].
+  Future<void> _onDeleteGroupGasto(DeleteGroupGasto event, Emitter<GastoState> emit) async {
+    try {
+      final currentState = state;
+      // Realizamos el borrado secuencial (Drift maneja bien las transacciones internas)
+      for (final id in event.ids) {
+        await _gastoRepository.deleteGasto(id);
+      }
+      
+      if (currentState is GastoLoaded) {
+        add(LoadGastos(currentState.selectedMonth));
+      } else {
+        add(LoadGastos(DateTime.now()));
+      }
+    } catch (e) {
+      emit(GastoError('Error al eliminar el grupo: $e'));
+    }
   }
 
   /// Manejador del evento [LoadAnnualData].

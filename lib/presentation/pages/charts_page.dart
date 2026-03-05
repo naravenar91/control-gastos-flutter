@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+
+import '../../core/constants/app_strings.dart';
+import '../../domain/models/categoria.dart';
+import '../../domain/models/chart_view.dart';
+import '../../domain/models/gasto.dart';
+import '../../domain/models/tipo_categoria.dart';
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
 import '../bloc/gasto_state.dart';
-import '../../domain/models/tipo_categoria.dart';
-import '../../domain/models/gasto.dart';
-import '../../domain/models/categoria.dart';
-
-enum ChartView { monthly, annual }
+import '../widgets/chart_legend.dart';
+import '../widgets/overspent_alert.dart';
 
 class ChartsPage extends StatefulWidget {
   const ChartsPage({super.key});
@@ -28,7 +32,7 @@ class _ChartsPageState extends State<ChartsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Análisis de Gastos'),
+        title: const Text(AppStrings.analisisDeGastos),
         centerTitle: true,
       ),
       body: BlocBuilder<GastoBloc, GastoState>(
@@ -56,12 +60,12 @@ class _ChartsPageState extends State<ChartsPage> {
                           segments: const [
                             ButtonSegment(
                               value: ChartView.monthly,
-                              label: Text('Mensual (Dona)'),
+                              label: Text(AppStrings.vistaMensual),
                               icon: Icon(Icons.pie_chart),
                             ),
                             ButtonSegment(
                               value: ChartView.annual,
-                              label: Text('Anual (Barras)'),
+                              label: Text(AppStrings.vistaAnual),
                               icon: Icon(Icons.bar_chart),
                             ),
                           ],
@@ -102,7 +106,7 @@ class _ChartsPageState extends State<ChartsPage> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 50),
-          child: Text('No hay datos suficientes para mostrar gráficos', style: TextStyle(color: Colors.grey)),
+          child: Text(AppStrings.noHayDatosGrficos, style: TextStyle(color: Colors.grey)),
         ),
       );
     }
@@ -124,13 +128,13 @@ class _ChartsPageState extends State<ChartsPage> {
     return Column(
       children: [
         const Text(
-          'Distribución del Ingreso',
+          AppStrings.distribucionIngreso,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5),
         ),
         const SizedBox(height: 8),
         Text(
-          'Total Ingresos: \$${currencyFormat.format(income)}',
+          '${AppStrings.totalIngresos} \$${currencyFormat.format(income)}',
           style: TextStyle(fontSize: 15, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 32),
@@ -150,7 +154,7 @@ class _ChartsPageState extends State<ChartsPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        'SALDO NETO',
+                        AppStrings.saldoNeto,
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 0.5),
                       ),
                       const SizedBox(height: 4),
@@ -169,7 +173,7 @@ class _ChartsPageState extends State<ChartsPage> {
                   ),
                 ),
               isOverspent 
-                ? _buildOverspentAlert(expense + savings, income, currencyFormat)
+                ? OverspentAlert(totalSpent: expense + savings, income: income, format: currencyFormat)
                 : PieChart(
                 PieChartData(
                   pieTouchData: PieTouchData(
@@ -201,7 +205,7 @@ class _ChartsPageState extends State<ChartsPage> {
           ),
         ),
         const SizedBox(height: 40), // Espacio entre gráfico y leyenda solicitado
-        _buildLegend(),
+        const ChartLegend(),
         const SizedBox(height: 40),
         
         // Detalle de movimientos AGRUPADOS
@@ -212,7 +216,7 @@ class _ChartsPageState extends State<ChartsPage> {
           child: Padding(
             padding: EdgeInsets.only(left: 4.0),
             child: Text(
-              'DETALLE POR CATEGORÍA', 
+              AppStrings.detallePorCategoria, 
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 1.0),
             ),
           ),
@@ -280,82 +284,110 @@ class _ChartsPageState extends State<ChartsPage> {
     return Column(
       children: [
         Text(
-          'Resumen Anual ${state.selectedMonth.year}',
+          '${AppStrings.resumenAnual} ${state.selectedMonth.year}',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 48), // Aumentado para dar aire superior
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 800, 
-            height: 300,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: _calculateMaxY(state.annualTotals),
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => Colors.blueGrey.shade800,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      String category = '';
-                      switch (rodIndex) {
-                        case 0: category = 'Ingreso'; break;
-                        case 1: category = 'Gasto'; break;
-                        case 2: category = 'Ahorro'; break;
-                      }
-                      return BarTooltipItem(
-                        '$category\n',
-                        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                        children: [
-                          TextSpan(
-                            text: '\$${currencyFormat.format(rod.toY)}',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                        final int index = value.toInt() - 1;
-                        if (index < 0 || index >= months.length) return const SizedBox.shrink();
-                        
-                        return SideTitleWidget(
-                          meta: meta,
-                          child: Text(months[index], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16.0), // Padding extra superior al gráfico
+            child: SizedBox(
+              width: 800, 
+              height: 300,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: _calculateMaxY(state.annualTotals),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) => Colors.blueGrey.shade900.withOpacity(0.9),
+                      tooltipMargin: 0,
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        String category = '';
+                        switch (rodIndex) {
+                          case 0: category = 'Ingreso'; break;
+                          case 1: category = 'Gasto'; break;
+                          case 2: category = 'Ahorro'; break;
+                        }
+                        return BarTooltipItem(
+                          '$category\n',
+                          const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          children: [
+                            TextSpan(
+                              text: currencyFormat.format(rod.toY),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
+                            ),
+                          ],
                         );
                       },
-                      reservedSize: 30,
                     ),
                   ),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                          final int index = value.toInt() - 1;
+                          if (index < 0 || index >= months.length) return const SizedBox.shrink();
+                          
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(months[index], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                          );
+                        },
+                        reservedSize: 30,
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 55, // Aumentado de 45 a 55 solicitado
+                        interval: _calculateInterval(state.annualTotals),
+                        getTitlesWidget: (value, meta) {
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(
+                              _formatCompact(value),
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => const FlLine(
+                      color: Colors.black12,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: state.annualTotals.entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(toY: entry.value.income, color: Colors.green.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                        BarChartRodData(toY: entry.value.expense, color: Colors.red.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                        BarChartRodData(toY: entry.value.savings, color: const Color(0xFF00BFFF), width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                      ],
+                    );
+                  }).toList(),
                 ),
-                gridData: const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-                barGroups: state.annualTotals.entries.map((entry) {
-                  return BarChartGroupData(
-                    x: entry.key,
-                    barRods: [
-                      BarChartRodData(toY: entry.value.income, color: Colors.green.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-                      BarChartRodData(toY: entry.value.expense, color: Colors.red.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-                      BarChartRodData(toY: entry.value.savings, color: const Color(0xFF00BFFF), width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-                    ],
-                  );
-                }).toList(),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 40),
-        _buildLegend(),
+        const SizedBox(height: 60), // Aumentado espacio entre gráfico y leyenda
+        const ChartLegend(),
       ],
     );
   }
@@ -367,28 +399,28 @@ class _ChartsPageState extends State<ChartsPage> {
       if (m.expense > max) max = m.expense;
       if (m.savings > max) max = m.savings;
     }
-    return max * 1.15;
+    return max == 0 ? 100 : max * 1.2;
   }
 
-  Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 50),
-        const SizedBox(height: 8),
-        const Text('¡Gasto Excedido!', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Text(
-            'Egresos (\$${format.format(totalSpent)}) > Ingresos (\$${format.format(income)})', 
-            textAlign: TextAlign.center, 
-            style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(height: 50, width: 50, child: PieChart(PieChartData(sections: [PieChartSectionData(color: Colors.red, value: 100, title: '100%', radius: 20, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10))]))),
-      ],
-    );
+  double _calculateInterval(Map<int, MonthlySummary> data) {
+    double max = 0;
+    for (var m in data.values) {
+      if (m.income > max) max = m.income;
+      if (m.expense > max) max = m.expense;
+      if (m.savings > max) max = m.savings;
+    }
+    if (max == 0) return 20;
+    return (max * 1.2) / 5; // Para mostrar aprox 5-6 etiquetas
+  }
+
+  String _formatCompact(double value) {
+    if (value == 0) return '0';
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(0)}k';
+    }
+    return value.toStringAsFixed(0);
   }
 
   List<PieChartSectionData> _buildSections({required double income, required double expense, required double savings, required double balance, required NumberFormat currencyFormat}) {
@@ -411,45 +443,6 @@ class _ChartsPageState extends State<ChartsPage> {
       title: isTouched ? '${percentage.toStringAsFixed(1)}%\n\$${currencyFormat.format(amount)}' : '${percentage.toStringAsFixed(1)}%',
       radius: isTouched ? 85.0 : 75.0,
       titleStyle: TextStyle(fontSize: isTouched ? 15.0 : 11.0, fontWeight: FontWeight.bold, color: Colors.white, shadows: const [Shadow(color: Colors.black, blurRadius: 2)]),
-    );
-  }
-
-  Widget _buildLegend() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 24,
-        runSpacing: 12,
-        children: [
-          _legendItem('Ingresos', Colors.green.shade600),
-          _legendItem('Gastos', Colors.red.shade600),
-          _legendItem('Saldo', const Color(0xFF00BFFF), customLabel: 'Ahorros'),
-        ],
-      ),
-    );
-  }
-
-  Widget _legendItem(String label, Color color, {String? customLabel}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min, 
-      children: [
-        Container(
-          width: 12, 
-          height: 12, 
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ), 
-        const SizedBox(width: 8), 
-        Text(
-          customLabel ?? label, 
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-      ],
     );
   }
 }

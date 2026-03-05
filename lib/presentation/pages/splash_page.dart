@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'main_screen.dart';
 
 class SplashPage extends StatefulWidget {
@@ -53,14 +54,28 @@ class _SplashPageState extends State<SplashPage> {
             ),
 
             // Versión Inferior
-            const Padding(
-              padding: EdgeInsets.only(bottom: 40.0),
-              child: Text(
-                'V1.1.0',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 40.0),
+              child: FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Text(
+                      'V${snapshot.data!.version}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    );
+                  }
+                  return const Text(
+                    'Cargando...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                  );
+                },
               ),
             ),
           ],
