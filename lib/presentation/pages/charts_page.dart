@@ -283,81 +283,106 @@ class _ChartsPageState extends State<ChartsPage> {
           'Resumen Anual ${state.selectedMonth.year}',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 48), // Aumentado para dar aire superior
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 800, 
-            height: 300,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: _calculateMaxY(state.annualTotals),
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => Colors.blueGrey.shade900.withOpacity(0.9),
-                    tooltipMargin: 0,
-                    fitInsideHorizontally: true,
-                    fitInsideVertically: true,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      String category = '';
-                      switch (rodIndex) {
-                        case 0: category = 'Ingreso'; break;
-                        case 1: category = 'Gasto'; break;
-                        case 2: category = 'Ahorro'; break;
-                      }
-                      return BarTooltipItem(
-                        '$category\n',
-                        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                        children: [
-                          TextSpan(
-                            text: currencyFormat.format(rod.toY),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                        final int index = value.toInt() - 1;
-                        if (index < 0 || index >= months.length) return const SizedBox.shrink();
-                        
-                        return SideTitleWidget(
-                          meta: meta,
-                          child: Text(months[index], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16.0), // Padding extra superior al gráfico
+            child: SizedBox(
+              width: 800, 
+              height: 300,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: _calculateMaxY(state.annualTotals),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) => Colors.blueGrey.shade900.withOpacity(0.9),
+                      tooltipMargin: 0,
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        String category = '';
+                        switch (rodIndex) {
+                          case 0: category = 'Ingreso'; break;
+                          case 1: category = 'Gasto'; break;
+                          case 2: category = 'Ahorro'; break;
+                        }
+                        return BarTooltipItem(
+                          '$category\n',
+                          const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          children: [
+                            TextSpan(
+                              text: currencyFormat.format(rod.toY),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 12),
+                            ),
+                          ],
                         );
                       },
-                      reservedSize: 30,
                     ),
                   ),
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                          final int index = value.toInt() - 1;
+                          if (index < 0 || index >= months.length) return const SizedBox.shrink();
+                          
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(months[index], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                          );
+                        },
+                        reservedSize: 30,
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 55, // Aumentado de 45 a 55 solicitado
+                        interval: _calculateInterval(state.annualTotals),
+                        getTitlesWidget: (value, meta) {
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(
+                              _formatCompact(value),
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) => const FlLine(
+                      color: Colors.black12,
+                      strokeWidth: 1,
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: state.annualTotals.entries.map((entry) {
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(toY: entry.value.income, color: Colors.green.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                        BarChartRodData(toY: entry.value.expense, color: Colors.red.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                        BarChartRodData(toY: entry.value.savings, color: const Color(0xFF00BFFF), width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
+                      ],
+                    );
+                  }).toList(),
                 ),
-                gridData: const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-                barGroups: state.annualTotals.entries.map((entry) {
-                  return BarChartGroupData(
-                    x: entry.key,
-                    barRods: [
-                      BarChartRodData(toY: entry.value.income, color: Colors.green.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-                      BarChartRodData(toY: entry.value.expense, color: Colors.red.shade600, width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-                      BarChartRodData(toY: entry.value.savings, color: const Color(0xFF00BFFF), width: 10, borderRadius: const BorderRadius.vertical(top: Radius.circular(4))),
-                    ],
-                  );
-                }).toList(),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 40),
+        const SizedBox(height: 60), // Aumentado espacio entre gráfico y leyenda
         _buildLegend(),
       ],
     );
@@ -370,7 +395,28 @@ class _ChartsPageState extends State<ChartsPage> {
       if (m.expense > max) max = m.expense;
       if (m.savings > max) max = m.savings;
     }
-    return max * 1.2;
+    return max == 0 ? 100 : max * 1.2;
+  }
+
+  double _calculateInterval(Map<int, MonthlySummary> data) {
+    double max = 0;
+    for (var m in data.values) {
+      if (m.income > max) max = m.income;
+      if (m.expense > max) max = m.expense;
+      if (m.savings > max) max = m.savings;
+    }
+    if (max == 0) return 20;
+    return (max * 1.2) / 5; // Para mostrar aprox 5-6 etiquetas
+  }
+
+  String _formatCompact(double value) {
+    if (value == 0) return '0';
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(0)}k';
+    }
+    return value.toStringAsFixed(0);
   }
 
   Widget _buildOverspentAlert(double totalSpent, double income, NumberFormat format) {
