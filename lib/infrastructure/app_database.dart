@@ -109,7 +109,7 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Se utiliza para manejar migraciones de la base de datos.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// Estrategia de migración para la base de datos.
   ///
@@ -144,6 +144,13 @@ class AppDatabase extends _$AppDatabase {
               )*/
             ]);
           });
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // Añadir nuevas columnas a la tabla Gastos para la versión 2
+            await m.addColumn(gastos, gastos.fechaInicio);
+            await m.addColumn(gastos, gastos.fechaFin);
+          }
         },
       );
 
