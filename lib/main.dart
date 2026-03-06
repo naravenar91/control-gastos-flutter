@@ -120,7 +120,7 @@ class MyApp extends StatelessWidget {
           scaffoldMessengerKey: scaffoldMessengerKey,
           title: 'Control de Gastos',
           // Temas definidos en theme_provider.dart
-          theme: AppTheme.lightTheme,
+          theme: themeMode == ThemeMode.system ? AppTheme.systemTheme : AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           // El tema actual se obtiene del estado de ThemeCubit
           themeMode: themeMode,
