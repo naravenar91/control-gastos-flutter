@@ -112,24 +112,48 @@ class _SplashPageState extends State<SplashPage> {
                     height: 180,
                   ),
                   if (_authError != null) ...[
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 40),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        _authError!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Autenticación cancelada o fallida.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                          const Text(
+                            'Intenta nuevamente.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _checkSecurity,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reintentar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade700,
-                        foregroundColor: Colors.white,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _checkSecurity,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reintentar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => SystemNavigator.pop(),
+                          icon: const Icon(Icons.exit_to_app),
+                          label: const Text('Salir'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],

@@ -318,15 +318,27 @@ class _SettingsPageState extends State<SettingsPage> {
           // SECCIÓN SEGURIDAD
           _buildSectionTitle('SEGURIDAD'),
           Card(
-            child: SwitchListTile(
-              secondary: const Icon(Icons.lock_outline, color: Colors.blueGrey),
-              title: const Text('Autenticación biométrica/PIN'),
-              subtitle: const Text('Protege el acceso a tus registros'),
-              value: _biometricEnabled,
-              onChanged: (value) async {
-                setState(() => _biometricEnabled = value);
-                await _saveSecuritySettings();
-              },
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.lock_outline, color: Colors.blueGrey),
+                  title: const Text('Autenticación biométrica/PIN'),
+                  subtitle: const Text('Protege el acceso a tus registros'),
+                  value: _biometricEnabled,
+                  onChanged: (value) async {
+                    setState(() => _biometricEnabled = value);
+                    await _saveSecuritySettings();
+                  },
+                ),
+                if (_biometricEnabled)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                    child: Text(
+                      'Ahora para ingresar deberá usar su clave del dispositivo',
+                      style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
