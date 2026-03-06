@@ -21,6 +21,9 @@ import 'presentation/theme_provider.dart';
 import 'infrastructure/notification_service.dart';
 
 /// Punto de entrada principal de la aplicación Flutter.
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   // Asegura que los bindings de Flutter estén inicializados antes de usar plugins.
   WidgetsFlutterBinding.ensureInitialized();
@@ -113,6 +116,8 @@ class MyApp extends StatelessWidget {
     return BlocBuilder<ThemeCubit, ThemeMode>(
       builder: (context, themeMode) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
+          scaffoldMessengerKey: scaffoldMessengerKey,
           title: 'Control de Gastos',
           // Temas definidos en theme_provider.dart
           theme: AppTheme.lightTheme,
