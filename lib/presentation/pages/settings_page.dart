@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import '../../main.dart';
 import '../bloc/theme_cubit.dart';
 import '../bloc/gasto_bloc.dart';
 import '../bloc/gasto_event.dart';
@@ -104,49 +105,44 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _restoreData(BuildContext context) async {
+    final gastoBloc = context.read<GastoBloc>();
+    final db = context.read<AppDatabase>();
+
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final jsonString = await file.readAsString();
-        
-        if (mounted) {
-          final db = context.read<AppDatabase>();
-          
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Restaurar Datos'),
-              content: const Text('¿Deseas importar los datos desde este archivo? Los registros existentes no se borrarán.'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
-                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('RESTAURAR')),
-              ],
-            ),
-          );
+      // Validación inmediata tras el await
+      if (!mounted) return;
 
-          if (confirm == true && mounted) {
-            await db.importFromJson(jsonString);
-            
-            if (mounted) {
-              context.read<GastoBloc>().add(LoadGastos(DateTime.now()));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Datos restaurados con éxito'), backgroundColor: Colors.green),
-              );
-            }
-          }
-        }
+      if (result == null || result.files.single.path == null) {
+        return;
       }
+
+      final file = File(result.files.single.path!);
+      final jsonString = await file.readAsString();
+      
+      // Importación directa para evitar dependencia de context en diálogos
+      await db.importFromJson(jsonString);
+      
+      // Actualización de UI a través del BLoC capturado localmente
+      gastoBloc.add(LoadGastos(DateTime.now()));
+      
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('Datos restaurados con éxito'), 
+          backgroundColor: Colors.green
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al restaurar datos: $e'), backgroundColor: Colors.red),
-        );
-      }
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Text('${AppStrings.error}: $e'), 
+          backgroundColor: Colors.red
+        ),
+      );
     }
   }
 
@@ -420,4 +416,3 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
-
