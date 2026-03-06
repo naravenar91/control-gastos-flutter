@@ -108,14 +108,27 @@ class _SettingsPageState extends State<SettingsPage> {
     final gastoBloc = context.read<GastoBloc>();
     final db = context.read<AppDatabase>();
 
+    // Mostrar diálogo de carga usando navigatorKey
+    showDialog(
+      context: navigatorKey.currentContext!,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Restaurando datos...', style: TextStyle(fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
-
-      // Validación inmediata tras el await
-      if (!mounted) return;
 
       if (result == null || result.files.single.path == null) {
         return;
@@ -124,10 +137,8 @@ class _SettingsPageState extends State<SettingsPage> {
       final file = File(result.files.single.path!);
       final jsonString = await file.readAsString();
       
-      // Importación directa para evitar dependencia de context en diálogos
+      // Lógica de importación y actualización dentro del try
       await db.importFromJson(jsonString);
-      
-      // Actualización de UI a través del BLoC capturado localmente
       gastoBloc.add(LoadGastos(DateTime.now()));
       
       scaffoldMessengerKey.currentState?.showSnackBar(
@@ -143,6 +154,11 @@ class _SettingsPageState extends State<SettingsPage> {
           backgroundColor: Colors.red
         ),
       );
+    } finally {
+      // Cierre global del diálogo en el bloque finally
+      if (navigatorKey.currentState?.canPop() ?? false) {
+        navigatorKey.currentState?.pop();
+      }
     }
   }
 
