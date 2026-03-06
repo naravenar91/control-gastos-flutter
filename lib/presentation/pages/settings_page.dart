@@ -23,6 +23,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _notificationsEnabled = false;
+  bool _biometricEnabled = false;
   TimeOfDay _notificationTime = const TimeOfDay(hour: 9, minute: 0);
   final List<bool> _selectedDays = List.generate(7, (_) => true);
   final List<String> _dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -46,6 +47,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+      _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
       final hour = prefs.getInt('notification_hour') ?? 9;
       final minute = prefs.getInt('notification_minute') ?? 0;
       _notificationTime = TimeOfDay(hour: hour, minute: minute);
@@ -57,6 +59,11 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       }
     });
+  }
+
+  Future<void> _saveSecuritySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('biometric_enabled', _biometricEnabled);
   }
 
   Future<void> _saveSettings() async {
@@ -303,6 +310,34 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // SECCIÓN SEGURIDAD
+          _buildSectionTitle('SEGURIDAD'),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.lock_outline, color: Colors.blueGrey),
+                  title: const Text('Autenticación biométrica/PIN'),
+                  subtitle: const Text('Protege el acceso a tus registros'),
+                  value: _biometricEnabled,
+                  onChanged: (value) async {
+                    setState(() => _biometricEnabled = value);
+                    await _saveSecuritySettings();
+                  },
+                ),
+                if (_biometricEnabled)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                    child: Text(
+                      'Ahora para ingresar deberá usar su clave del dispositivo',
+                      style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ),
               ],
             ),
           ),

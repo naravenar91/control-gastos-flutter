@@ -40,6 +40,34 @@ class AppTheme {
     );
   }
 
+  /// Tema de la aplicación cuando está en modo sistema (especial para identificarlo).
+  static ThemeData get systemTheme {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.deepPurple, // Tono púrpura para diferenciar el modo sistema
+        brightness: Brightness.light,
+        primary: Colors.deepPurple,
+        secondary: Colors.deepPurpleAccent,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
   /// Tema de la aplicación en modo oscuro.
   static ThemeData get darkTheme {
     return ThemeData(
