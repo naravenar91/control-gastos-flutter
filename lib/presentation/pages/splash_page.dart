@@ -205,11 +205,11 @@ class _SplashPageState extends State<SplashPage> {
                     builder: (context, snapshot) {
                       if (snapshot.hasData) {
                         return Text(
-                          'V${snapshot.data!.version}',
+                          'Versión ${snapshot.data!.version}',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.bold
                           ),
                         );
                       }
@@ -232,18 +232,18 @@ class _SplashPageState extends State<SplashPage> {
 class _BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // Curva Superior Naranja
+    // Curva Superior Naranja (Más pronunciada hacia el título)
     final orangePaint = Paint()
       ..color = Colors.orange.shade300.withOpacity(0.2)
       ..style = PaintingStyle.fill;
 
     final orangePath = Path();
-    orangePath.moveTo(0, size.height * 0.15);
+    orangePath.moveTo(0, size.height * 0.25); // Bajamos el inicio
     orangePath.quadraticBezierTo(
-      size.width * 0.25,
-      size.height * 0.05,
-      size.width,
+      size.width * 0.4, // Movemos el punto de control
       size.height * 0.1,
+      size.width,
+      size.height * 0.2, // Bajamos el final
     );
     orangePath.lineTo(size.width, 0);
     orangePath.lineTo(0, 0);
@@ -256,12 +256,12 @@ class _BackgroundPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final bluePath = Path();
-    bluePath.moveTo(0, size.height * 0.9);
+    bluePath.moveTo(0, size.height * 0.9);// Subimos el inicio
     bluePath.quadraticBezierTo(
-      size.width * 0.75,
-      size.height * 0.85,
+      size.width * 0.75, // Movemos el punto de control
+      size.height * 0.85, // Subimos el punto de control significativamente
       size.width,
-      size.height * 0.95,
+      size.height * 0.7,// Subimos el final
     );
     bluePath.lineTo(size.width, size.height);
     bluePath.lineTo(0, size.height);
