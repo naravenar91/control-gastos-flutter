@@ -31,6 +31,7 @@ dependencies:
   printing: ^5.13.2
   file_picker: ^10.3.10
   shared_preferences: ^2.5.4
+  local_auth: ^2.3.0
   flutter_local_notifications: ^21.0.0-dev.2
   timezone: ^0.11.0
   #intl: ^0.18.1 # For internationalization, including date and number formatting
