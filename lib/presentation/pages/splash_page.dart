@@ -84,110 +84,191 @@ class _SplashPageState extends State<SplashPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Título Superior
-            Padding(
-              padding: const EdgeInsets.only(top: 60.0),
-              child: Text(
-                'Control de Gastos',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red.shade700,
-                ),
-              ),
+      body: Stack(
+        children: [
+          // Fondo con curvas personalizadas
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _BackgroundPainter(),
             ),
-
-            // Logo Central y Botón de Reintento
-            Center(
-              child: Column(
-                children: [
-                  Image.asset(
-                    'assets/icon/saving_money_logo.png',
-                    width: 180,
-                    height: 180,
-                  ),
-                  if (_authError != null) ...[
-                    const SizedBox(height: 40),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Autenticación cancelada o fallida.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                          ),
-                          const Text(
-                            'Intenta nuevamente.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
+          ),
+          SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Título Superior
+                Padding(
+                  padding: const EdgeInsets.only(top: 60.0),
+                  child: Text(
+                    'Control de Gastos',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red.shade800,
+                      letterSpacing: 1.2,
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _checkSecurity,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Reintentar'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
+                  ),
+                ),
+
+                // Contenido Central (Logo, Error, Botones)
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: Image.asset(
+                          'assets/icon/saving_money_logo.png',
+                          width: 180,
+                          height: 180,
+                        ),
+                      ),
+                      if (_authError != null) ...[
+                        const SizedBox(height: 40),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 30),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: const Column(
+                              children: [
+                                Text(
+                                  'Autenticación cancelada o fallida.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Intenta nuevamente.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: () => SystemNavigator.pop(),
-                          icon: const Icon(Icons.exit_to_app),
-                          label: const Text('Salir'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _checkSecurity,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Reintentar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade600,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => SystemNavigator.pop(),
+                              icon: const Icon(Icons.exit_to_app),
+                              label: const Text('Salir'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.shade600,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
+                    ],
+                  ),
+                ),
 
-            // Versión Inferior
-            Padding(
-              padding: const EdgeInsets.only(bottom: 40.0),
-              child: FutureBuilder<PackageInfo>(
-                future: PackageInfo.fromPlatform(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return Text(
-                      'V${snapshot.data!.version}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    );
-                  }
-                  return const Text(
-                    'Cargando...',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  );
-                },
-              ),
+                // Versión Inferior
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 40.0),
+                  child: FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return Text(
+                          'V${snapshot.data!.version}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        );
+                      }
+                      return const Text(
+                        'Cargando...',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _BackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Curva Superior Naranja
+    final orangePaint = Paint()
+      ..color = Colors.orange.shade300.withOpacity(0.2)
+      ..style = PaintingStyle.fill;
+
+    final orangePath = Path();
+    orangePath.moveTo(0, size.height * 0.15);
+    orangePath.quadraticBezierTo(
+      size.width * 0.25,
+      size.height * 0.05,
+      size.width,
+      size.height * 0.1,
+    );
+    orangePath.lineTo(size.width, 0);
+    orangePath.lineTo(0, 0);
+    orangePath.close();
+    canvas.drawPath(orangePath, orangePaint);
+
+    // Curva Inferior Celeste
+    final bluePaint = Paint()
+      ..color = Colors.blue.shade200.withOpacity(0.25)
+      ..style = PaintingStyle.fill;
+
+    final bluePath = Path();
+    bluePath.moveTo(0, size.height * 0.9);
+    bluePath.quadraticBezierTo(
+      size.width * 0.75,
+      size.height * 0.85,
+      size.width,
+      size.height * 0.95,
+    );
+    bluePath.lineTo(size.width, size.height);
+    bluePath.lineTo(0, size.height);
+    bluePath.close();
+    canvas.drawPath(bluePath, bluePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
