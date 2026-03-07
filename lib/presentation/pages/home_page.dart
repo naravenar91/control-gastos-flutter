@@ -180,55 +180,58 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final Map<int, List<Gasto>> groupedGastos = {};
-                      for (var g in state.gastos) {
-                        groupedGastos.putIfAbsent(g.idCategoria, () => []).add(g);
-                      }
-                      final List<int> categoryIds = groupedGastos.keys.toList();
-                      if (index >= categoryIds.length) return null;
+                SliverPadding(
+                  padding: const EdgeInsets.only(bottom: 80.0),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final Map<int, List<Gasto>> groupedGastos = {};
+                        for (var g in state.gastos) {
+                          groupedGastos.putIfAbsent(g.idCategoria, () => []).add(g);
+                        }
+                        final List<int> categoryIds = groupedGastos.keys.toList();
+                        if (index >= categoryIds.length) return null;
 
-                      final int catId = categoryIds[index];
-                      final List<Gasto> items = groupedGastos[catId]!;
-                      final Categoria? categoria = state.categoriasMap[catId];
-                      final double totalGroup = items.fold(0, (sum, item) => sum + item.monto);
-                      final Color themeColor = categoria != null 
-                          ? (categoria.tipo == TipoCategoria.ahorro ? const Color(0xFF00BFFF) : Color(categoria.colorValue))
-                          : Theme.of(context).colorScheme.secondary;
+                        final int catId = categoryIds[index];
+                        final List<Gasto> items = groupedGastos[catId]!;
+                        final Categoria? categoria = state.categoriasMap[catId];
+                        final double totalGroup = items.fold(0, (sum, item) => sum + item.monto);
+                        final Color themeColor = categoria != null 
+                            ? (categoria.tipo == TipoCategoria.ahorro ? const Color(0xFF00BFFF) : Color(categoria.colorValue))
+                            : Theme.of(context).colorScheme.secondary;
 
-                      if (items.length == 1) {
-                        return _buildGastoTile(context, items.first, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth);
-                      }
+                        if (items.length == 1) {
+                          return _buildGastoTile(context, items.first, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth);
+                        }
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                        elevation: 1,
-                        child: GestureDetector(
-                          onLongPress: () => _confirmGroupDeletion(context, items, categoria?.descripcion ?? 'Sin Categoría'),
-                          child: ExpansionTile(
-                            shape: const RoundedRectangleBorder(side: BorderSide.none),
-                            collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
-                            leading: CircleAvatar(
-                              backgroundColor: themeColor,
-                              child: Text(
-                                categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
-                                style: const TextStyle(color: Colors.white),
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                          elevation: 1,
+                          child: GestureDetector(
+                            onLongPress: () => _confirmGroupDeletion(context, items, categoria?.descripcion ?? 'Sin Categoría'),
+                            child: ExpansionTile(
+                              shape: const RoundedRectangleBorder(side: BorderSide.none),
+                              collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+                              leading: CircleAvatar(
+                                backgroundColor: themeColor,
+                                child: Text(
+                                  categoria != null ? categoria.descripcion[0].toUpperCase() : '?',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
                               ),
+                              title: Text(categoria?.descripcion ?? 'Sin Categoría', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${items.length} registros'),
+                              trailing: Text(
+                                _formatWithSign(totalGroup, categoria?.tipo, currencyFormat),
+                                style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              children: items.map((gasto) => _buildGastoDetailTile(context, gasto, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth)).toList(),
                             ),
-                            title: Text(categoria?.descripcion ?? 'Sin Categoría', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('${items.length} registros'),
-                            trailing: Text(
-                              _formatWithSign(totalGroup, categoria?.tipo, currencyFormat),
-                              style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            children: items.map((gasto) => _buildGastoDetailTile(context, gasto, categoria, themeColor, currencyFormat, dateFormat, state.selectedMonth)).toList(),
                           ),
-                        ),
-                      );
-                    },
-                    childCount: state.gastos.map((g) => g.idCategoria).toSet().length,
+                        );
+                      },
+                      childCount: state.gastos.map((g) => g.idCategoria).toSet().length,
+                    ),
                   ),
                 ),
               ],
